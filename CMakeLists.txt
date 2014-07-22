@@ -188,6 +188,6 @@ add_custom_command(
     TARGET ${MAIN_TARGET}
     COMMAND ${SIZE_COMMAND} ${MAIN_TARGET}
     COMMAND ${TOOLCHAIN_SYSROOT}/bin/fromelf --bin -o ${PROJECT_NAME}.bin ${MAIN_TARGET} # convert .elf to .bin
-    # COMMAND srec_cat ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_NRF51822/Lib/s110_nrf51822_7_0_0/s110_nrf51822_7.0.0_softdevice.hex -intel ${PROJECT_NAME}.bin -binary -offset 0x16000 -o combined.hex -intel
+    COMMAND srec_cat ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_NRF51822/Lib/s110_nrf51822_7_0_0/s110_nrf51822_7.0.0_softdevice.hex -intel ${PROJECT_NAME}.bin -binary -offset 0x3C000 -o combined.hex -intel
     # follow this by copying the resulting combined.hex onto the target (possibly over USB)
 )
