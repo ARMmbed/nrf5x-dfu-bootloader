@@ -79,7 +79,7 @@ static void detection_delay_timeout_handler(void * p_context)
     }
 
     uint8_t i;
-    
+
     // Pushed button(s) detected, execute button handler(s).
     for (i = 0; i < m_button_count; i++)
     {
@@ -126,7 +126,7 @@ static void detection_delay_timeout_handler(void * p_context)
 static void gpiote_event_handler(uint32_t event_pins_low_to_high, uint32_t event_pins_high_to_low)
 {
     uint32_t err_code;
- 
+
     // Start detection timer. If timer is already running, the detection period is restarted.
     // NOTE: Using the p_context parameter of app_timer_start() to transfer the pin states to the
     //       timeout handler (by casting event_pins_mask into the equally sized void * p_context
@@ -137,20 +137,20 @@ static void gpiote_event_handler(uint32_t event_pins_low_to_high, uint32_t event
     if (err_code != NRF_SUCCESS)
     {
         // The impact in app_button of the app_timer queue running full is losing a button press.
-        // The current implementation ensures that the system will continue working as normal. 
+        // The current implementation ensures that the system will continue working as normal.
         return;
     }
 
     m_pin_transition.low_to_high = event_pins_low_to_high;
     m_pin_transition.high_to_low = event_pins_high_to_low;
-    
+
     err_code = app_timer_start(m_detection_delay_timer_id,
                                m_detection_delay,
                                (void *)(event_pins_low_to_high | event_pins_high_to_low));
     if (err_code != NRF_SUCCESS)
     {
         // The impact in app_button of the app_timer queue running full is losing a button press.
-        // The current implementation ensures that the system will continue working as normal. 
+        // The current implementation ensures that the system will continue working as normal.
     }
 }
 
@@ -161,7 +161,7 @@ uint32_t app_button_init(app_button_cfg_t *             p_buttons,
                          app_button_evt_schedule_func_t evt_schedule_func)
 {
     uint32_t err_code;
-    
+
     if (detection_delay < APP_TIMER_MIN_TIMEOUT_TICKS)
     {
         return NRF_ERROR_INVALID_PARAM;
@@ -172,21 +172,21 @@ uint32_t app_button_init(app_button_cfg_t *             p_buttons,
     m_button_count      = button_count;
     m_detection_delay   = detection_delay;
     m_evt_schedule_func = evt_schedule_func;
-  
+
     // Configure pins.
     uint32_t pins_transition_mask = 0;
-    
+
     while (button_count--)
     {
         app_button_cfg_t * p_btn = &p_buttons[button_count];
 
         // Configure pin.
         nrf_gpio_cfg_input(p_btn->pin_no, p_btn->pull_cfg);
-        
+
         // Build GPIOTE user registration masks.
         pins_transition_mask |= (1 << p_btn->pin_no);
     }
-    
+
     // Register button module as a GPIOTE user.
     err_code = app_gpiote_user_register(&m_gpiote_user_id,
                                         pins_transition_mask,
@@ -218,7 +218,7 @@ uint32_t app_button_enable(void)
 uint32_t app_button_disable(void)
 {
     uint32_t err_code;
-    
+
     if (mp_buttons == NULL)
     {
         return NRF_ERROR_INVALID_STATE;
@@ -240,7 +240,7 @@ uint32_t app_button_is_pushed(uint8_t pin_no, bool * p_is_pushed)
 {
     uint32_t err_code;
     uint32_t active_pins;
-    
+
     app_button_cfg_t * p_btn = &mp_buttons[pin_no];
 
     if (mp_buttons == NULL)
@@ -249,7 +249,7 @@ uint32_t app_button_is_pushed(uint8_t pin_no, bool * p_is_pushed)
     }
 
     err_code = app_gpiote_pins_state_get(m_gpiote_user_id, &active_pins);
-    
+
     if (err_code != NRF_SUCCESS)
     {
         return err_code;
@@ -264,8 +264,8 @@ uint32_t app_button_is_pushed(uint8_t pin_no, bool * p_is_pushed)
         }
         else
         {
-            *p_is_pushed = true;  
-        }            
+            *p_is_pushed = true;
+        }
     }
     else if(p_btn->active_state == APP_BUTTON_ACTIVE_HIGH)
     {
@@ -276,9 +276,9 @@ uint32_t app_button_is_pushed(uint8_t pin_no, bool * p_is_pushed)
         }
         else
         {
-            *p_is_pushed = false;   
+            *p_is_pushed = false;
         }
     }
-    
+
     return NRF_SUCCESS;
 }

@@ -11,9 +11,8 @@
  */
 
 #include <stdio.h>
-#include <stdint.h>
 #include "compiler_abstraction.h"
-// #include "nrf.h"
+#include "nrf.h"
 #include "nrf_delay.h"
 
 /*lint --e{438} "Variable not used" */

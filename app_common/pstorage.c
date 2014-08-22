@@ -17,7 +17,7 @@
 #include "nordic_common.h"
 #include "nrf_error.h"
 #include "nrf_assert.h"
-// #include "nrf.h"
+#include "nrf.h"
 #include "nrf_soc.h"
 #include "app_util.h"
 

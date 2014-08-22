@@ -25,7 +25,7 @@
 #include "ble_gap.h"
 #include "ble_gatt.h"
 #include "ble_hci.h"
-// #include "boards.h"
+#include "boards.h"
 #include "ble_dfu.h"
 #include "nordic_common.h"
 #include "app_timer.h"
@@ -568,7 +568,7 @@ static void advertising_start(void)
         err_code = sd_ble_gap_adv_start(&m_adv_params);
         APP_ERROR_CHECK(err_code);
 
-        // nrf_gpio_pin_set(ADVERTISING_LED_PIN_NO);
+        nrf_gpio_pin_set(ADVERTISING_LED_PIN_NO);
 
         m_is_advertising = true;
     }
@@ -586,7 +586,7 @@ static void advertising_stop(void)
         err_code = sd_ble_gap_adv_stop();
         APP_ERROR_CHECK(err_code);
 
-        // nrf_gpio_pin_clear(ADVERTISING_LED_PIN_NO);
+        nrf_gpio_pin_clear(ADVERTISING_LED_PIN_NO);
 
         m_is_advertising = false;
     }
@@ -604,15 +604,15 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
     switch (p_ble_evt->header.evt_id)
     {
         case BLE_GAP_EVT_CONNECTED:
-            // nrf_gpio_pin_set(CONNECTED_LED_PIN_NO);
-            // nrf_gpio_pin_clear(ADVERTISING_LED_PIN_NO);
+            nrf_gpio_pin_set(CONNECTED_LED_PIN_NO);
+            nrf_gpio_pin_clear(ADVERTISING_LED_PIN_NO);
 
             m_conn_handle    = p_ble_evt->evt.gap_evt.conn_handle;
             m_is_advertising = false;
             break;
 
         case BLE_GAP_EVT_DISCONNECTED:
-            // nrf_gpio_pin_clear(CONNECTED_LED_PIN_NO);
+            nrf_gpio_pin_clear(CONNECTED_LED_PIN_NO);
 
             if (!m_tear_down_in_progress)
             {
@@ -677,9 +677,9 @@ static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
  */
 static void leds_init(void)
 {
-    // nrf_gpio_cfg_output(ADVERTISING_LED_PIN_NO);
-    // nrf_gpio_cfg_output(CONNECTED_LED_PIN_NO);
-    // nrf_gpio_cfg_output(ASSERT_LED_PIN_NO);
+    nrf_gpio_cfg_output(ADVERTISING_LED_PIN_NO);
+    nrf_gpio_cfg_output(CONNECTED_LED_PIN_NO);
+    nrf_gpio_cfg_output(ASSERT_LED_PIN_NO);
 }
 
 

@@ -34,7 +34,7 @@
 #include <string.h>
 #include <stddef.h>
 #include "nordic_common.h"
-// #include "nrf.h"
+#include "nrf.h"
 #include "app_error.h"
 #include "nrf_gpio.h"
 #include "nrf51_bitfields.h"
@@ -45,7 +45,7 @@
 #include "app_timer.h"
 #include "app_gpiote.h"
 #include "nrf_error.h"
-// #include "boards.h"
+#include "boards.h"
 #include "ble_debug_assert_handler.h"
 #include "softdevice_handler.h"
 #include "pstorage_platform.h"
@@ -79,7 +79,7 @@
  */
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
-    // nrf_gpio_pin_set(LED_7);
+    nrf_gpio_pin_set(LED_7);
     // This call can be used for debug purposes during application development.
     // @note CAUTION: Activating this code will write the stack to flash on an error.
     //                This function should NOT be used in a final product.
@@ -117,10 +117,10 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
  */
 static void leds_init(void)
 {
-    // nrf_gpio_cfg_output(LED_0);
-    // nrf_gpio_cfg_output(LED_1);
-    // nrf_gpio_cfg_output(LED_2);
-    // nrf_gpio_cfg_output(LED_7);
+    nrf_gpio_cfg_output(LED_0);
+    nrf_gpio_cfg_output(LED_1);
+    nrf_gpio_cfg_output(LED_2);
+    nrf_gpio_cfg_output(LED_7);
 }
 
 
@@ -130,10 +130,10 @@ static void leds_init(void)
  */
 static void leds_off(void)
 {
-    // nrf_gpio_pin_clear(LED_0);
-    // nrf_gpio_pin_clear(LED_1);
-    // nrf_gpio_pin_clear(LED_2);
-    // nrf_gpio_pin_clear(LED_7);
+    nrf_gpio_pin_clear(LED_0);
+    nrf_gpio_pin_clear(LED_1);
+    nrf_gpio_pin_clear(LED_2);
+    nrf_gpio_pin_clear(LED_7);
 }
 
 
@@ -160,9 +160,9 @@ static void timers_init(void)
  */
 static void buttons_init(void)
 {
-    // nrf_gpio_cfg_sense_input(BOOTLOADER_BUTTON_PIN,
-    //                          BUTTON_PULL,
-    //                          NRF_GPIO_PIN_SENSE_LOW);
+    nrf_gpio_cfg_sense_input(BOOTLOADER_BUTTON_PIN,
+                             BUTTON_PULL,
+                             NRF_GPIO_PIN_SENSE_LOW);
 }
 
 
@@ -253,18 +253,17 @@ int main(void)
         scheduler_init();
     }
 
-    // bootloader_is_pushed = ((nrf_gpio_pin_read(BOOTLOADER_BUTTON_PIN) == 0) ? true: false);
-    bootloader_is_pushed = false;
+    bootloader_is_pushed = ((nrf_gpio_pin_read(BOOTLOADER_BUTTON_PIN) == 0) ? true: false);
 
     if (bootloader_is_pushed || (!bootloader_app_is_valid(DFU_BANK_0_REGION_START)))
     {
-        // nrf_gpio_pin_set(LED_2);
+        nrf_gpio_pin_set(LED_2);
 
         // Initiate an update of the firmware.
         err_code = bootloader_dfu_start();
         APP_ERROR_CHECK(err_code);
 
-        // nrf_gpio_pin_clear(LED_2);
+        nrf_gpio_pin_clear(LED_2);
     }
 
     if (bootloader_app_is_valid(DFU_BANK_0_REGION_START))
@@ -276,10 +275,10 @@ int main(void)
         bootloader_app_start(DFU_BANK_0_REGION_START);
     }
 
-    // nrf_gpio_pin_clear(LED_0);
-    // nrf_gpio_pin_clear(LED_1);
-    // nrf_gpio_pin_clear(LED_2);
-    // nrf_gpio_pin_clear(LED_7);
+    nrf_gpio_pin_clear(LED_0);
+    nrf_gpio_pin_clear(LED_1);
+    nrf_gpio_pin_clear(LED_2);
+    nrf_gpio_pin_clear(LED_7);
 
     NVIC_SystemReset();
 }
