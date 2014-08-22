@@ -16,7 +16,6 @@ project (BLE_BOOTLOADER)
 set (MBED_SRC_PATH     ${BLE_BOOTLOADER_SOURCE_DIR}/../../mbed-src/libraries/mbed)
 set (BLE_API_SRC_PATH  ${BLE_BOOTLOADER_SOURCE_DIR}/../../BLE_API)
 set (NRF51822_SRC_PATH ${BLE_BOOTLOADER_SOURCE_DIR}/../../nRF51822)
-set (APP_COMMON_SRC_PATH ${BLE_BOOTLOADER_SOURCE_DIR}/app_common)
 
 # It's best to hide all the details of setting up the variable SRCS in a CMake
 # macro. The macro can then be called in all the project CMake list files to add
@@ -154,15 +153,8 @@ add_sources(${NRF51822_SRC_PATH}/nordic/ble/ble_advdata.cpp
             ${NRF51822_SRC_PATH}/nordic/softdevice_handler.cpp
 )
 
-# file(GLOB APP_COMMON_SOURCES ${APP_COMMON_SRC_PATH}/*.c)
-add_sources(${APP_COMMON_SRC_PATH}/app_button.c
-    ${APP_COMMON_SRC_PATH}/hci_mem_pool.c
-    ${APP_COMMON_SRC_PATH}/app_timer.c
-    ${APP_COMMON_SRC_PATH}/app_scheduler.c
-    ${APP_COMMON_SRC_PATH}/app_gpiote.c
-    ${APP_COMMON_SRC_PATH}/crc16.c
-    ${APP_COMMON_SRC_PATH}/pstorage.c
-)
+file(GLOB APP_COMMON_SOURCES ${NRF51822_SRC_PATH}/nordic/app_common/*.c ${NRF51822_SRC_PATH}/nordic/app_common/*.cpp)
+add_sources(${APP_COMMON_SOURCES})
 
 add_sources(arm_startup_nrf51.s)
 
