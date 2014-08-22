@@ -13,9 +13,9 @@ cmake_minimum_required (VERSION 2.8)
 project (BLE_BOOTLOADER)
 
 # define some more paths to projects we depend on
-set (MBED_SRC_PATH     ${BLE_BOOTLOADER_SOURCE_DIR}/../../github/mbed/libraries/mbed)
-set (BLE_API_SRC_PATH  ${BLE_BOOTLOADER_SOURCE_DIR}/../../mbed.org/BLE_API)
-set (NRF51822_SRC_PATH ${BLE_BOOTLOADER_SOURCE_DIR}/../../mbed.org/nRF51822)
+set (MBED_SRC_PATH     ${BLE_BOOTLOADER_SOURCE_DIR}/../../mbed-src/libraries/mbed)
+set (BLE_API_SRC_PATH  ${BLE_BOOTLOADER_SOURCE_DIR}/../../BLE_API)
+set (NRF51822_SRC_PATH ${BLE_BOOTLOADER_SOURCE_DIR}/../../nRF51822)
 set (APP_COMMON_SRC_PATH ${BLE_BOOTLOADER_SOURCE_DIR}/app_common)
 
 # It's best to hide all the details of setting up the variable SRCS in a CMake
@@ -76,15 +76,16 @@ include_directories(
     # ${MBED_SRC_PATH}/targets
     ${MBED_SRC_PATH}/targets/cmsis
     # ${MBED_SRC_PATH}/targets/cmsis/TARGET_NORDIC
-    ${MBED_SRC_PATH}/targets/cmsis/TARGET_NORDIC/TARGET_NRF51822
-    # ${MBED_SRC_PATH}/targets/cmsis/TARGET_NORDIC/TARGET_NRF51822/TOOLCHAIN_ARM_STD
+    ${MBED_SRC_PATH}/targets/cmsis/TARGET_NORDIC/TARGET_MCU_NRF51822
+    # ${MBED_SRC_PATH}/targets/cmsis/TARGET_NORDIC/TARGET_MCU_NRF51822/TOOLCHAIN_ARM_STD
     # ${MBED_SRC_PATH}/targets/hal
     # ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC
-    # ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_NRF51822
-    # ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_NRF51822/Lib
-    ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_NRF51822/TARGET_NRF51822_MKIT
+    # ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822
+    # ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/Lib
+    ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/TARGET_NRF51822_MKIT
     # ${BLE_API_SRC_PATH}
-    # ${BLE_API_SRC_PATH}/hw
+    # ${BLE_API_SRC_PATH}/public
+    # ${BLE_API_SRC_PATH}/common
     # ${NRF51822_SRC_PATH}
     # ${NRF51822_SRC_PATH}/btle
     # ${NRF51822_SRC_PATH}/btle/custom
@@ -94,6 +95,7 @@ include_directories(
     ${NRF51822_SRC_PATH}/nordic/nrf-sdk/app_common
     ${NRF51822_SRC_PATH}/nordic/nrf-sdk/ble
     ${NRF51822_SRC_PATH}/nordic/nrf-sdk/ble/ble_services
+    # ${NRF51822_SRC_PATH}/nordic/nrf-sdk/ble/rpc
     ${NRF51822_SRC_PATH}/nordic/nrf-sdk/s110
     ${NRF51822_SRC_PATH}/nordic/nrf-sdk/sd_common
     # ${NRF51822_SRC_PATH}/nordic/nrf-sdk/ble/rpc
@@ -102,40 +104,29 @@ include_directories(
 # Generic compiler flags
 add_definitions(
     --cpu=Cortex-M0
-    --gnu
-    -Ospace
-    --split_sections
     --apcs=interwork
-    # --brief_diagnostics
-    --restrict
     --enum_is_int
-    # -O3
+    -DNRF51
+    -DDEBUG_NRF_USER
+    -DBOARD_NRF6310
+    -DBOOTLOADER_BANKED
+    -DBLE_STACK_SUPPORT_REQD
+    -O3
     --md
-    --no_depend_system_headers
     -DTARGET_NRF51822
     -DTARGET_M0
     -DTARGET_NORDIC
     -DTOOLCHAIN_ARM_STD
     -DTOOLCHAIN_ARM
     -D__CC_ARM
-    -DNEED_PSTORAGE=1
     -D__CORTEX_M0
     -DARM_MATH_CM0
-    -DMBED_BUILD_TIMESTAMP=1399904910.34
     -D__MBED__=1
-    -DBOOTLOADER_BANKED
-    -DBLE_STACK_SUPPORT_REQD
-    -DNRF51
-    -DDEBUG_NRF_USER
-    -DBOARD_NRF6310
-    -DMBED_USERNAME=rohgro01
 )
 
 # Language specifc compiler flags.
-set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} --cpp --no_rtti")
-set(CMAKE_C_FLAGS
-    "${CMAKE_C_FLAGS} --c99")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --cpp --no_rtti")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --c99")
 
 # A macro to collect local sources into ${SRCS}.
 # This variable gets propagated to the parent scope and is ultimately used in
@@ -147,15 +138,15 @@ set(CMAKE_C_FLAGS
 # involved in propagating variables to only the parent scope.
 add_sources(
     main.c
+    dfu_dual_bank.c
     bootloader.c
     bootloader_util_arm.c
     ble_dfu.c
-    dfu_dual_bank.c
-    dfu_transport_ble.c
     nrf_delay.c
+    dfu_transport_ble.c
 )
 
-add_sources(${MBED_SRC_PATH}/targets/cmsis/TARGET_NORDIC/TARGET_NRF51822/system_nrf51822.c)
+add_sources(${MBED_SRC_PATH}/targets/cmsis/TARGET_NORDIC/TARGET_MCU_NRF51822/system_nrf51822.c)
 
 add_sources(${NRF51822_SRC_PATH}/nordic/ble/ble_advdata.cpp
             ${NRF51822_SRC_PATH}/nordic/ble/ble_conn_params.cpp
@@ -165,11 +156,11 @@ add_sources(${NRF51822_SRC_PATH}/nordic/ble/ble_advdata.cpp
 
 # file(GLOB APP_COMMON_SOURCES ${APP_COMMON_SRC_PATH}/*.c)
 add_sources(${APP_COMMON_SRC_PATH}/app_button.c
-    ${APP_COMMON_SRC_PATH}/app_gpiote.c
-    ${APP_COMMON_SRC_PATH}/app_scheduler.c
-    ${APP_COMMON_SRC_PATH}/app_timer.c
-    ${APP_COMMON_SRC_PATH}/crc16.c
     ${APP_COMMON_SRC_PATH}/hci_mem_pool.c
+    ${APP_COMMON_SRC_PATH}/app_timer.c
+    ${APP_COMMON_SRC_PATH}/app_scheduler.c
+    ${APP_COMMON_SRC_PATH}/app_gpiote.c
+    ${APP_COMMON_SRC_PATH}/crc16.c
     ${APP_COMMON_SRC_PATH}/pstorage.c
 )
 
@@ -187,7 +178,7 @@ add_executable(${MAIN_TARGET} ${SRCS})
 add_custom_command(
     TARGET ${MAIN_TARGET}
     COMMAND ${SIZE_COMMAND} ${MAIN_TARGET}
-    COMMAND ${TOOLCHAIN_SYSROOT}/bin/fromelf --bin -o ${PROJECT_NAME}.bin ${MAIN_TARGET} # convert .elf to .bin
-    COMMAND srec_cat ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_NRF51822/Lib/s110_nrf51822_7_0_0/s110_nrf51822_7.0.0_softdevice.hex -intel ${PROJECT_NAME}.bin -binary -offset 0x3C000 -o combined.hex -intel
+    COMMAND ${TOOLCHAIN_SYSROOT}/bin/fromelf --i32combined -o ${PROJECT_NAME}.hex ${MAIN_TARGET} # convert .elf to .hex
+    COMMAND srec_cat ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/Lib/s110_nrf51822_7_0_0/s110_nrf51822_7.0.0_softdevice.hex -intel ${PROJECT_NAME}.hex -intel -o combined.hex -intel
     # follow this by copying the resulting combined.hex onto the target (possibly over USB)
 )
