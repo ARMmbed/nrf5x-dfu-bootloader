@@ -97,7 +97,7 @@ include_directories(
     # ${NRF51822_SRC_PATH}/nordic/nrf-sdk/ble/rpc
     ${NRF51822_SRC_PATH}/nordic/nrf-sdk/s110
     ${NRF51822_SRC_PATH}/nordic/nrf-sdk/sd_common
-    # ${NRF51822_SRC_PATH}/nordic/nrf-sdk/ble/rpc
+    ${BLE_BOOTLOADER_SOURCE_DIR}/../../Nordic/nrf51822-sdk/Include
 )
 
 # Generic compiler flags
