@@ -32,9 +32,9 @@
  */
 uint32_t bootloader_init(void);
 
-/**@brief Function for validating application region.
+/**@brief Function for validating application region in flash.
  * 
- * @param[in]  app_addr      Address to the region where the application is stored.
+ * @param[in]  app_addr      Address to the region in flash where the application is stored.
  * 
  * @retval     true          If Application region is valid.
  * @retval     false         If Application region is not valid.
@@ -43,11 +43,15 @@ bool bootloader_app_is_valid(uint32_t app_addr);
 
 /**@brief Function for starting the Device Firmware Update.
  * 
- * @retval     NRF_SUCCESS If new appliction image was successfully transfered. 
+ * @retval     NRF_SUCCESS If new application image was successfully transferred.
  */
 uint32_t bootloader_dfu_start(void);
 
-/**@brief Function for 
+/**@brief Function for exiting bootloader and booting into application
+ *
+ * @details This function will disable SoftDevice and all interrupts before jumping to application.
+ *          The SoftDevice vector table base for interrupt forwarding will be set the application
+ *          address.
  *
  * @param[in]  app_addr      Address to the region where the application is stored.
  */
@@ -82,14 +86,11 @@ bool bootloader_dfu_sd_in_progress(void);
  */
 uint32_t bootloader_dfu_sd_update_continue(void);
 
-uint32_t bootloader_dfu_sd_update_validate(void);
-
 /**@brief Function for finalizing the Device Firmware Update of a SoftDevice.
  * 
  * @retval     NRF_SUCCESS If the final stage of SoftDevice update was successful. 
  */
 uint32_t bootloader_dfu_sd_update_finalize(void);
-
 
 #endif // BOOTLOADER_H__
 

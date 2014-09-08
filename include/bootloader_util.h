@@ -23,19 +23,15 @@
 
 #include <stdint.h>
 #include "bootloader_types.h"
-#include "dfu_types.h"
 
-/**@brief Function for starting the application.
+/**@brief Function for starting the application (or bootloader) at the provided address.
  * 
  * @param[in]  start_addr             Start address.
+ *
+ * @note This function will never retrun. Instead it will reset into the application of the 
+ *       provided address.
  */
 void bootloader_util_app_start(uint32_t start_addr);
-
-/**@brief Function for getting the bootloader settings.
- * 
- * @param[out] pp_bootloader_settings Bootloader settings. 
- */
-void bootloader_util_settings_get(const bootloader_settings_t ** pp_bootloader_settings);
 
 #endif // BOOTLOADER_UTIL_H__
 

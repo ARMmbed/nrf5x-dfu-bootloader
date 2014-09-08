@@ -22,7 +22,6 @@
 #define DFU_TRANSPORT_H__
 
 #include <stdint.h>
-#include "ble.h"
 
 /**@brief Function for starting the update of Device Firmware.
  *

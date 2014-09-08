@@ -51,7 +51,7 @@ set(MAIN_TARGET        ${PROJECT_NAME}.elf)
 SET(CMAKE_LINK_FLAGS "--libpath=${TOOLCHAIN_SYSROOT}/lib --info=totals --list=.link_totals.txt --scatter ${BLE_BOOTLOADER_SOURCE_DIR}/bootloader.sct")
 
 SET(CMAKE_CXX_LINK_EXECUTABLE
-    "armlink ${CMAKE_LINK_FLAGS} <OBJECTS> -o <TARGET> --map --feedback=.feedback")
+    "armlink ${CMAKE_LINK_FLAGS} <OBJECTS> -o <TARGET> --map --feedback=.feedback --feedback_type=unused,iw")
 enable_language(ASM)
 
 message(STATUS "C compiler  : ${CMAKE_C_COMPILER}")
@@ -68,6 +68,7 @@ message(STATUS "Main target : ${MAIN_TARGET}")
 include_directories(
     ${BLE_BOOTLOADER_SOURCE_DIR}
     ${BLE_BOOTLOADER_SOURCE_DIR}/include
+    ${BLE_BOOTLOADER_SOURCE_DIR}/include/ble_transport
     # ${MBED_SRC_PATH}/
     # ${MBED_SRC_PATH}/api
     # ${MBED_SRC_PATH}/common
@@ -97,7 +98,7 @@ include_directories(
     # ${NRF51822_SRC_PATH}/nordic/nrf-sdk/ble/rpc
     ${NRF51822_SRC_PATH}/nordic/nrf-sdk/s110
     ${NRF51822_SRC_PATH}/nordic/nrf-sdk/sd_common
-    ${BLE_BOOTLOADER_SOURCE_DIR}/../../Nordic/nrf51822-sdk/Include
+    ${BLE_BOOTLOADER_SOURCE_DIR}/../../Nordic/nrf51822-sdk-v6.1.0/Include
 )
 
 # Generic compiler flags
@@ -121,6 +122,9 @@ add_definitions(
     -D__CORTEX_M0
     -DARM_MATH_CM0
     -D__MBED__=1
+    -DNEED_PSTORAGE
+    -DNEED_APP_GPIOTE
+    --feedback=.feedback
 )
 
 # Language specifc compiler flags.
@@ -140,12 +144,15 @@ add_sources(
     dfu_dual_bank.c
     bootloader.c
     bootloader_util_arm.c
+    bootloader_settings_arm.c
     ble_dfu.c
     nrf_delay.c
     dfu_transport_ble.c
 )
 
+add_sources(startup/arm_startup_nrf51.s)
 add_sources(${MBED_SRC_PATH}/targets/cmsis/TARGET_NORDIC/TARGET_MCU_NRF51822/system_nrf51822.c)
+add_sources(${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/Lib/app_common/app_timer.c)
 
 add_sources(${NRF51822_SRC_PATH}/nordic/ble/ble_advdata.cpp
             ${NRF51822_SRC_PATH}/nordic/ble/ble_conn_params.cpp
@@ -156,7 +163,6 @@ add_sources(${NRF51822_SRC_PATH}/nordic/ble/ble_advdata.cpp
 file(GLOB APP_COMMON_SOURCES ${NRF51822_SRC_PATH}/nordic/app_common/*.c ${NRF51822_SRC_PATH}/nordic/app_common/*.cpp)
 add_sources(${APP_COMMON_SOURCES})
 
-add_sources(arm_startup_nrf51.s)
 
 ############################################################################
 # By now, we've traversed all subdirectories and have collected everything that

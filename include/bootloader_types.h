@@ -9,21 +9,23 @@
  * the file.
  *
  */
- 
+
 /**@file
  *
  * @defgroup nrf_bootloader_types Types and definitions.
- * @{     
- *  
+ * @{
+ *
  * @ingroup nrf_bootloader
- * 
+ *
  * @brief Bootloader module type and definitions.
  */
- 
+
 #ifndef BOOTLOADER_TYPES_H__
 #define BOOTLOADER_TYPES_H__
 
 #include <stdint.h>
+
+#define BOOTLOADER_DFU_START 0xB1
 
 /**@brief DFU Bank state code, which indicates wether the bank contains: A valid image, invalid image, or an erased flash.
   */
@@ -47,8 +49,9 @@ typedef struct
     uint32_t               sd_image_size;   /**< Size of SoftDevice image in bank0 if bank_0 code is \ref BANK_VALID_SD. */
     uint32_t               bl_image_size;   /**< Size of Bootloader image in bank0 if bank_0 code is \ref BANK_VALID_SD. */
     uint32_t               app_image_size;  /**< Size of Application image in bank0 if bank_0 code is \ref BANK_VALID_SD. */
+    uint32_t               sd_image_start;  /**< Location in flash where SoftDevice image is stored for SoftDevice update. */
 } bootloader_settings_t;
 
-#endif // BOOTLOADER_TYPES_H__ 
+#endif // BOOTLOADER_TYPES_H__
 
 /**@} */

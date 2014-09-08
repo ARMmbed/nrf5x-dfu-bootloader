@@ -17,7 +17,7 @@
  * @ingroup dfu_bootloader_api
  * @brief Bootloader project main file.
  *
- * -# Receive start data package.
+ * -# Receive start data packet.
  * -# Based on start packet, prepare NVM area to store received data.
  * -# Receive data packet.
  * -# Validate data packet.
@@ -27,14 +27,15 @@
  * -# Activate Image, boot application.
  *
  */
-//#include "dfu.h"
 #include "dfu_transport.h"
 #include "bootloader.h"
+#include "bootloader_util.h"
 #include <stdint.h>
 #include <string.h>
 #include <stddef.h>
 #include "nordic_common.h"
 #include "nrf.h"
+#include "nrf_soc.h"
 #include "app_error.h"
 #include "nrf_gpio.h"
 #include "nrf51_bitfields.h"
@@ -112,8 +113,6 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
 
 
 /**@brief Function for initialization of LEDs.
- *
- * @details Initializes all LEDs used by the application.
  */
 static void leds_init(void)
 {
@@ -125,8 +124,6 @@ static void leds_init(void)
 
 
 /**@brief Function for clearing the LEDs.
- *
- * @details Clears all LEDs used by the application.
  */
 static void leds_off(void)
 {
@@ -145,9 +142,7 @@ static void gpiote_init(void)
 }
 
 
-/**@brief Function for the Timer initialization.
- *
- * @details Initializes the timer module.
+/**@brief Function for initializing the timer handler module (app_timer).
  */
 static void timers_init(void)
 {
@@ -163,6 +158,7 @@ static void buttons_init(void)
     nrf_gpio_cfg_sense_input(BOOTLOADER_BUTTON_PIN,
                              BUTTON_PULL,
                              NRF_GPIO_PIN_SENSE_LOW);
+
 }
 
 
@@ -182,14 +178,21 @@ static void sys_evt_dispatch(uint32_t event)
 /**@brief Function for initializing the BLE stack.
  *
  * @details Initializes the SoftDevice and the BLE event interrupt.
+ *
+ * @param[in] init_softdevice  true if SoftDevice should be initialized. The SoftDevice must only
+ *                             be initialized if a chip reset has occured. Soft reset from
+ *                             application must not reinitialize the SoftDevice.
  */
-static void ble_stack_init(void)
+static void ble_stack_init(bool init_softdevice)
 {
     uint32_t         err_code;
     sd_mbr_command_t com = {SD_MBR_COMMAND_INIT_SD, };
 
-    err_code = sd_mbr_command(&com);
-    APP_ERROR_CHECK(err_code);
+    if (init_softdevice)
+    {
+        err_code = sd_mbr_command(&com);
+        APP_ERROR_CHECK(err_code);
+    }
 
     err_code = sd_softdevice_vector_table_base_set(BOOTLOADER_REGION_START);
     APP_ERROR_CHECK(err_code);
@@ -215,12 +218,14 @@ static void scheduler_init(void)
     APP_SCHED_INIT(SCHED_MAX_EVENT_DATA_SIZE, SCHED_QUEUE_SIZE);
 }
 
-/**@brief Function for application main entry.
+
+/**@brief Function for bootloader main entry.
  */
 int main(void)
 {
     uint32_t err_code;
-    bool     bootloader_is_pushed = false;
+    bool     dfu_start = false;
+    bool     app_reset = (NRF_POWER->GPREGRET == BOOTLOADER_DFU_START);
 
     leds_init();
 
@@ -240,7 +245,7 @@ int main(void)
         err_code = bootloader_dfu_sd_update_continue();
         APP_ERROR_CHECK(err_code);
 
-        ble_stack_init();
+        ble_stack_init(!app_reset);
         scheduler_init();
 
         err_code = bootloader_dfu_sd_update_finalize();
@@ -249,14 +254,18 @@ int main(void)
     else
     {
         // If stack is present then continue initialization of bootloader.
-        ble_stack_init();
+        ble_stack_init(!app_reset);
         scheduler_init();
     }
 
-    bootloader_is_pushed = ((nrf_gpio_pin_read(BOOTLOADER_BUTTON_PIN) == 0) ? true: false);
+    dfu_start  = app_reset;
+    dfu_start |= ((nrf_gpio_pin_read(BOOTLOADER_BUTTON_PIN) == 0) ? true: false);
 
-    if (bootloader_is_pushed || (!bootloader_app_is_valid(DFU_BANK_0_REGION_START)))
+    if (dfu_start || (!bootloader_app_is_valid(DFU_BANK_0_REGION_START)))
     {
+        err_code = sd_power_gpregret_clr(POWER_GPREGRET_GPREGRET_Msk);
+        APP_ERROR_CHECK(err_code);
+
         nrf_gpio_pin_set(LED_2);
 
         // Initiate an update of the firmware.
