@@ -80,7 +80,7 @@
  */
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
-    nrf_gpio_pin_set(LED_7);
+    // nrf_gpio_pin_set(LED_7);
     // This call can be used for debug purposes during application development.
     // @note CAUTION: Activating this code will write the stack to flash on an error.
     //                This function should NOT be used in a final product.
@@ -116,10 +116,10 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
  */
 static void leds_init(void)
 {
-    nrf_gpio_cfg_output(LED_0);
-    nrf_gpio_cfg_output(LED_1);
-    nrf_gpio_cfg_output(LED_2);
-    nrf_gpio_cfg_output(LED_7);
+    // nrf_gpio_cfg_output(LED_0);
+    // nrf_gpio_cfg_output(LED_1);
+    // nrf_gpio_cfg_output(LED_2);
+    // nrf_gpio_cfg_output(LED_7);
 }
 
 
@@ -266,7 +266,7 @@ int main(void)
         err_code = sd_power_gpregret_clr(POWER_GPREGRET_GPREGRET_Msk);
         APP_ERROR_CHECK(err_code);
 
-        nrf_gpio_pin_set(LED_2);
+        // nrf_gpio_pin_set(LED_2);
 
         // Initiate an update of the firmware.
         err_code = bootloader_dfu_start();
