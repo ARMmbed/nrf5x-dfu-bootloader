@@ -15,6 +15,7 @@
 #include "dfu_types.h"
 #include <stddef.h>
 #include <string.h>
+// #include "boards.h"
 #include "nrf51.h"
 #include "nrf_sdm.h"
 #include "nrf_gpio.h"
@@ -27,19 +28,20 @@
 #include "ble_gap.h"
 #include "ble_gatt.h"
 #include "ble_hci.h"
-#include "boards.h"
 #include "ble_dfu.h"
 #include "nordic_common.h"
 #include "app_timer.h"
-#include "ble_flash.h"
 #include "ble_conn_params.h"
 #include "hci_mem_pool.h"
 #include "bootloader.h"
+#include "dfu_ble_svc_internal.h"
+#include "nrf_delay.h"
 
-#define ADVERTISING_LED_PIN_NO               LED_0                                                   /**< Is on when device is advertising. */
-#define CONNECTED_LED_PIN_NO                 LED_1                                                   /**< Is on when device has connected. */
-#define ASSERT_LED_PIN_NO                    LED_7                                                   /**< Is on when application has asserted. */
-
+#define DFU_REV_MAJOR                        0x00                                                    /** DFU Major revision number to be exposed. */
+#define DFU_REV_MINOR                        0x05                                                    /** DFU Minor revision number to be exposed. */
+#define DFU_REVISION                         ((DFU_REV_MAJOR << 8) | DFU_REV_MINOR)                  /** DFU Revision number to be exposed. Combined of major and minor versions. */
+// #define ADVERTISING_LED_PIN_NO               BSP_LED_0                                               /**< Is on when device is advertising. */
+// #define CONNECTED_LED_PIN_NO                 BSP_LED_1                                               /**< Is on when device has connected. */
 
 #define DEVICE_NAME                          "DfuTarg"                                               /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "NordicSemiconductor"                                   /**< Manufacturer. Will be passed to Device Information Service. */
@@ -55,8 +57,10 @@
 #define NEXT_CONN_PARAMS_UPDATE_DELAY        APP_TIMER_TICKS(500, APP_TIMER_PRESCALER)               /**< Time between each call to sd_ble_gap_conn_param_update after the first call (500 milliseconds). */
 #define MAX_CONN_PARAMS_UPDATE_COUNT         3                                                       /**< Number of attempts before giving up the connection parameter negotiation. */
 
-#define APP_ADV_INTERVAL                     400                                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
+#define APP_ADV_INTERVAL                     MSEC_TO_UNITS(25, UNIT_0_625_MS)                        /**< The advertising interval (25 ms.). */
 #define APP_ADV_TIMEOUT_IN_SECONDS           BLE_GAP_ADV_TIMEOUT_GENERAL_UNLIMITED                   /**< The advertising timeout in units of seconds. This is set to @ref BLE_GAP_ADV_TIMEOUT_GENERAL_UNLIMITED so that the advertisement is done as long as there there is a call to @ref dfu_transport_close function.*/
+#define APP_DIRECTED_ADV_TIMEOUT             5                                                       /**< number of direct advertisement (each lasting 1.28seconds). */
+#define PEER_ADDRESS_TYPE_INVALID            0xFF                                                    /**< Value indicating that no valid peer address exists. This will be the case when a private resolvable address is used in which case there is no address available but instead an IRK is present. */
 
 #define SEC_PARAM_TIMEOUT                    30                                                      /**< Timeout for Pairing Request or Security Request (in seconds). */
 #define SEC_PARAM_BOND                       1                                                       /**< Perform bonding. */
@@ -90,10 +94,13 @@ static uint32_t             m_num_of_firmware_bytes_rcvd;                       
 static uint16_t             m_pkt_notif_target;                                                      /**< Number of packets of firmware data to be received before transmitting the next Packet Receipt Notification to the DFU Controller. */
 static uint16_t             m_pkt_notif_target_cnt;                                                  /**< Number of packets of firmware data received after sending last Packet Receipt Notification or since the receipt of a @ref BLE_DFU_PKT_RCPT_NOTIF_ENABLED event from the DFU service, which ever occurs later.*/
 static uint8_t              * mp_rx_buffer;                                                          /**< Pointer to a RX buffer.*/
-static bool                 m_tear_down_in_progress   = false;                                       /**< Variable to indicate whether a tear down is in progress. A tear down could be because the application has initiated it or the peer has disconnected. */
-static bool                 m_pkt_rcpt_notif_enabled  = false;                                       /**< Variable to denote whether packet receipt notification has been enabled by the DFU controller.*/
-static uint16_t             m_conn_handle             = BLE_CONN_HANDLE_INVALID;                     /**< Handle of the current connection. */
-static bool                 m_is_advertising          = false;                                       /**< Variable to indicate if advertising is ongoing.*/
+static bool                 m_tear_down_in_progress  = false;                                        /**< Variable to indicate whether a tear down is in progress. A tear down could be because the application has initiated it or the peer has disconnected. */
+static bool                 m_pkt_rcpt_notif_enabled = false;                                        /**< Variable to denote whether packet receipt notification has been enabled by the DFU controller.*/
+static uint16_t             m_conn_handle            = BLE_CONN_HANDLE_INVALID;                      /**< Handle of the current connection. */
+static bool                 m_is_advertising         = false;                                        /**< Variable to indicate if advertising is ongoing.*/
+static dfu_ble_peer_data_t  m_ble_peer_data;                                                         /**< BLE Peer data exchanged from application on buttonless update mode. */
+static bool                 m_ble_peer_data_valid    = false;                                        /**< True if BLE Peer data has been exchanged from application. */
+static uint32_t             m_direct_adv_cnt         = APP_DIRECTED_ADV_TIMEOUT;                     /**< Counter of direct advertisements. */
 
 
 /**@brief     Function to convert an nRF51 error code to a DFU Response Value.
@@ -142,7 +149,7 @@ static ble_dfu_resp_val_t nrf_err_code_translate(uint32_t                  err_c
 /**@brief     Function for handling the callback events from the dfu module.
  *            Callbacks are expected when \ref dfu_data_pkt_handle has been executed.
  *
- * @param[in] packet    Packet type for which this callback is related. 
+ * @param[in] packet    Packet type for which this callback is related.
  * @param[in] result    Operation result code. NRF_SUCCESS when a queued operation was successful.
  * @param[in] p_data    Pointer to the data to which the operation is related.
  */
@@ -156,10 +163,11 @@ static void dfu_cb_handler(uint32_t packet, uint32_t result, uint8_t * p_data)
         case DATA_PACKET:
             if (result != NRF_SUCCESS)
             {
+
                 // Disconnect from peer.
                 if (IS_CONNECTED())
                 {
-                    err_code = sd_ble_gap_disconnect(m_conn_handle, 
+                    err_code = sd_ble_gap_disconnect(m_conn_handle,
                                                      BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
                     APP_ERROR_CHECK(err_code);
                 }
@@ -170,7 +178,7 @@ static void dfu_cb_handler(uint32_t packet, uint32_t result, uint8_t * p_data)
                 APP_ERROR_CHECK(err_code);
             }
             break;
-        
+
         case START_PACKET:
             // Translate the err_code returned by the above function to DFU Response Value.
             resp_val = nrf_err_code_translate(result, BLE_DFU_START_PROCEDURE);
@@ -180,16 +188,16 @@ static void dfu_cb_handler(uint32_t packet, uint32_t result, uint8_t * p_data)
                                              resp_val);
             APP_ERROR_CHECK(err_code);
             break;
-        
+
         default:
             // ignore.
             break;
     }
 }
-    
+
 
 /**@brief     Function for notifying a DFU Controller about error conditions in the DFU module.
- *            This function also ensures that an error is translated from nrf_errors to DFU Response 
+ *            This function also ensures that an error is translated from nrf_errors to DFU Response
  *            Value.
  *
  * @param[in] p_dfu     DFU Service Structure.
@@ -200,9 +208,9 @@ static void dfu_error_notify(ble_dfu_t * p_dfu, uint32_t err_code)
     // An error has occurred. Notify the DFU Controller about this error condition.
     // Translate the err_code returned to DFU Response Value.
     ble_dfu_resp_val_t resp_val;
-    
+
     resp_val = nrf_err_code_translate(err_code, BLE_DFU_RECEIVE_APP_PROCEDURE);
-    
+
     err_code = ble_dfu_response_send(p_dfu, BLE_DFU_RECEIVE_APP_PROCEDURE, resp_val);
     APP_ERROR_CHECK(err_code);
 }
@@ -217,19 +225,19 @@ static void dfu_error_notify(ble_dfu_t * p_dfu, uint32_t err_code)
 static void start_data_process(ble_dfu_t * p_dfu, ble_dfu_evt_t * p_evt)
 {
     uint32_t err_code;
-    
-    dfu_start_packet_t start_packet   = {.dfu_update_mode = m_update_mode};    
+
+    dfu_start_packet_t start_packet   = {.dfu_update_mode = m_update_mode};
     dfu_update_packet_t update_packet =
     {
         .packet_type         = START_PACKET,
         .params.start_packet = &start_packet
     };
-    
+
     uint32_t length = p_evt->evt.ble_dfu_pkt_write.len;
 
     // Verify that the data is exactly three * four bytes (three words) long.
     // Or a single word to support backwards compatibility of application image transfer.
-    if ((length != (3 * sizeof(uint32_t))) && (length != sizeof(uint32_t)))
+    if (length != (3 * sizeof(uint32_t)))
     {
         err_code = ble_dfu_response_send(p_dfu,
                                          BLE_DFU_START_PROCEDURE,
@@ -241,19 +249,9 @@ static void start_data_process(ble_dfu_t * p_dfu, ble_dfu_evt_t * p_evt)
         // Extract the size of from the DFU Packet Characteristic.
         uint8_t * length_data = p_evt->evt.ble_dfu_pkt_write.p_data;
 
-        if (length == sizeof(uint32_t))
-        {
-            // Legacy update.
-            start_packet.sd_image_size  = 0;
-            start_packet.bl_image_size  = 0;
-            start_packet.app_image_size = uint32_decode(length_data);
-        }
-        else
-        {
-            start_packet.sd_image_size  = uint32_decode(length_data);
-            start_packet.bl_image_size  = uint32_decode(length_data + 4);
-            start_packet.app_image_size = uint32_decode(length_data + 8);
-        }
+        start_packet.sd_image_size  = uint32_decode(length_data);
+        start_packet.bl_image_size  = uint32_decode(length_data + 4);
+        start_packet.app_image_size = uint32_decode(length_data + 8);
 
         err_code = dfu_start_pkt_handle(&update_packet);
         if (err_code != NRF_SUCCESS)
@@ -281,7 +279,7 @@ static void init_data_process(ble_dfu_t * p_dfu, ble_dfu_evt_t * p_evt)
 {
     uint32_t            err_code;
     dfu_update_packet_t dfu_pkt;
-    uint8_t             num_of_padding_bytes = 0;    
+    uint8_t             num_of_padding_bytes = 0;
 
     dfu_pkt.packet_type   = INIT_PACKET;
 
@@ -305,18 +303,19 @@ static void init_data_process(ble_dfu_t * p_dfu, ble_dfu_evt_t * p_evt)
          }
     }
 
-    dfu_pkt.params.data_packet.packet_length = 
+    dfu_pkt.params.data_packet.packet_length =
         (p_evt->evt.ble_dfu_pkt_write.len + num_of_padding_bytes) / sizeof(uint32_t);
 
     err_code = dfu_init_pkt_handle(&dfu_pkt);
 
     // Translate the err_code returned by the above function to DFU Response Value.
-    ble_dfu_resp_val_t resp_val;
+    if (err_code != NRF_SUCCESS)
+    {
+        ble_dfu_resp_val_t resp_val = nrf_err_code_translate(err_code, BLE_DFU_INIT_PROCEDURE);
 
-    resp_val = nrf_err_code_translate(err_code, BLE_DFU_INIT_PROCEDURE);
-
-    err_code = ble_dfu_response_send(p_dfu, BLE_DFU_INIT_PROCEDURE, resp_val);
-    APP_ERROR_CHECK(err_code);
+        err_code = ble_dfu_response_send(p_dfu, BLE_DFU_INIT_PROCEDURE, resp_val);
+        APP_ERROR_CHECK(err_code);
+    }
 }
 
 
@@ -341,14 +340,14 @@ static void app_data_process(ble_dfu_t * p_dfu, ble_dfu_evt_t * p_evt)
     }
 
     uint32_t length = p_evt->evt.ble_dfu_pkt_write.len;
-    
+
     err_code = hci_mem_pool_rx_produce(length, (void**) &mp_rx_buffer);
     if (err_code != NRF_SUCCESS)
     {
         dfu_error_notify(p_dfu, err_code);
         return;
     }
-    
+
     uint8_t * p_data_packet = p_evt->evt.ble_dfu_pkt_write.p_data;
     memcpy(mp_rx_buffer, p_data_packet, length);
 
@@ -371,7 +370,7 @@ static void app_data_process(ble_dfu_t * p_dfu, ble_dfu_evt_t * p_evt)
     dfu_pkt.packet_type                      = DATA_PACKET;
     dfu_pkt.params.data_packet.packet_length = length / sizeof(uint32_t);
     dfu_pkt.params.data_packet.p_data_packet = (uint32_t*)mp_rx_buffer;
-    
+
     err_code = dfu_data_pkt_handle(&dfu_pkt);
 
     if (err_code == NRF_SUCCESS)
@@ -415,7 +414,7 @@ static void app_data_process(ble_dfu_t * p_dfu, ble_dfu_evt_t * p_evt)
         {
             dfu_error_notify(p_dfu, hci_error);
         }
-        
+
         dfu_error_notify(p_dfu, err_code);
     }
 }
@@ -445,7 +444,7 @@ static void on_dfu_pkt_write(ble_dfu_t * p_dfu, ble_dfu_evt_t * p_evt)
         case PKT_TYPE_FIRMWARE_DATA:
             app_data_process(p_dfu, p_evt);
             break;
-        
+
         default:
             // It is not possible to find out what packet it is. Ignore. Currently there is no
             // mechanism to notify the DFU Controller about this error condition.
@@ -497,7 +496,8 @@ static void conn_params_init(void)
  */
 static void on_dfu_evt(ble_dfu_t * p_dfu, ble_dfu_evt_t * p_evt)
 {
-    uint32_t err_code;
+    uint32_t           err_code;
+    ble_dfu_resp_val_t resp_val;
 
     switch (p_evt->ble_dfu_evt_type)
     {
@@ -505,8 +505,6 @@ static void on_dfu_evt(ble_dfu_t * p_dfu, ble_dfu_evt_t * p_evt)
             err_code = dfu_image_validate();
 
             // Translate the err_code returned by the above function to DFU Response Value.
-            ble_dfu_resp_val_t resp_val;
-
             resp_val = nrf_err_code_translate(err_code, BLE_DFU_VALIDATE_PROCEDURE);
 
             err_code = ble_dfu_response_send(p_dfu, BLE_DFU_VALIDATE_PROCEDURE, resp_val);
@@ -517,7 +515,7 @@ static void on_dfu_evt(ble_dfu_t * p_dfu, ble_dfu_evt_t * p_evt)
             err_code = dfu_transport_close();
             APP_ERROR_CHECK(err_code);
 
-            // With the S110 Flash API it is safe to initiate the activate before connection is 
+            // With the S110 Flash API it is safe to initiate the activate before connection is
             // fully closed.
             err_code = dfu_image_activate();
             if (err_code != NRF_SUCCESS)
@@ -529,24 +527,27 @@ static void on_dfu_evt(ble_dfu_t * p_dfu, ble_dfu_evt_t * p_evt)
         case BLE_DFU_SYS_RESET:
             err_code = dfu_transport_close();
             APP_ERROR_CHECK(err_code);
-        
+
             dfu_reset();
             break;
 
         case BLE_DFU_START:
-            m_pkt_type = PKT_TYPE_START;
-            if (p_evt->evt.ble_dfu_pkt_write.len == 0)
-            {
-                m_update_mode = DFU_UPDATE_APP;
-            }
-            else
-            {
-                m_update_mode = (uint8_t)p_evt->evt.ble_dfu_pkt_write.p_data[0];
-            }
+            m_pkt_type    = PKT_TYPE_START;
+            m_update_mode = (uint8_t)p_evt->evt.ble_dfu_pkt_write.p_data[0];
             break;
 
         case BLE_DFU_RECEIVE_INIT_DATA:
             m_pkt_type = PKT_TYPE_INIT;
+            if ((uint8_t)p_evt->evt.ble_dfu_pkt_write.p_data[0] == DFU_INIT_COMPLETE)
+            {
+                err_code = dfu_init_pkt_complete();
+
+                // Translate the err_code returned by the above function to DFU Response Value.
+                resp_val = nrf_err_code_translate(err_code, BLE_DFU_INIT_PROCEDURE);
+
+                err_code = ble_dfu_response_send(p_dfu, BLE_DFU_INIT_PROCEDURE, resp_val);
+                APP_ERROR_CHECK(err_code);
+            }
             break;
 
         case BLE_DFU_RECEIVE_APP_DATA:
@@ -567,7 +568,7 @@ static void on_dfu_evt(ble_dfu_t * p_dfu, ble_dfu_evt_t * p_evt)
             m_pkt_rcpt_notif_enabled = false;
             m_pkt_notif_target       = 0;
             break;
-        
+
        case BLE_DFU_BYTES_RECEIVED_SEND:
             err_code = ble_dfu_bytes_rcvd_report(p_dfu, m_num_of_firmware_bytes_rcvd);
             APP_ERROR_CHECK(err_code);
@@ -580,6 +581,35 @@ static void on_dfu_evt(ble_dfu_t * p_dfu, ble_dfu_evt_t * p_evt)
 }
 
 
+/**@brief     Function for the Advertising functionality initialization.
+ *
+ * @details   Encodes the required advertising data and passes it to the stack.
+ *            Also builds a structure to be passed to the stack when starting advertising.
+ */
+static void advertising_init(uint8_t adv_flags)
+{
+    uint32_t            err_code;
+    ble_advdata_t       advdata;
+    ble_uuid_t          service_uuid;
+
+    service_uuid.type   = m_dfu.uuid_type;
+    service_uuid.uuid   = BLE_DFU_SERVICE_UUID;
+
+    // Build and set advertising data.
+    memset(&advdata, 0, sizeof(advdata));
+
+    advdata.name_type                     = BLE_ADVDATA_FULL_NAME;
+    advdata.include_appearance            = false;
+    advdata.flags.size                    = sizeof(adv_flags);
+    advdata.flags.p_data                  = &adv_flags;
+    advdata.uuids_more_available.uuid_cnt = 1;
+    advdata.uuids_more_available.p_uuids  = &service_uuid;
+
+    err_code = ble_advdata_set(&advdata, NULL);
+    APP_ERROR_CHECK(err_code);
+}
+
+
 /**@brief Function for starting advertising.
  */
 static void advertising_start(void)
@@ -588,10 +618,57 @@ static void advertising_start(void)
     {
         uint32_t err_code;
 
+        // Initialize advertising parameters (used when starting advertising).
+        memset(&m_adv_params, 0, sizeof(m_adv_params));
+
+        if (m_ble_peer_data_valid)
+        {
+            if (m_ble_peer_data.addr.addr_type != PEER_ADDRESS_TYPE_INVALID)
+            {
+                advertising_init(BLE_GAP_ADV_FLAGS_LE_ONLY_LIMITED_DISC_MODE);
+                m_adv_params.type        = BLE_GAP_ADV_TYPE_ADV_DIRECT_IND;
+                m_adv_params.p_peer_addr = &m_ble_peer_data.addr;
+                m_adv_params.fp          = BLE_GAP_ADV_FP_ANY;
+                m_adv_params.interval    = 0;
+                m_adv_params.timeout     = 0;
+            }
+            else
+            {
+                ble_gap_irk_t      * p_irk[1];
+                ble_gap_addr_t     * p_addr[1];
+
+                p_irk[0]  = &m_ble_peer_data.irk;
+                p_addr[0] = &m_ble_peer_data.addr;
+
+                ble_gap_whitelist_t  whitelist;
+                whitelist.addr_count = 0;
+                whitelist.pp_addrs   = p_addr;
+                whitelist.irk_count  = 1;
+                whitelist.pp_irks    = p_irk;
+
+                advertising_init(BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED);
+                m_adv_params.type        = BLE_GAP_ADV_TYPE_ADV_IND;
+                m_adv_params.fp          = BLE_GAP_ADV_FP_FILTER_CONNREQ;
+                m_adv_params.p_whitelist = &whitelist;
+
+                m_adv_params.interval    = APP_ADV_INTERVAL;
+                m_adv_params.timeout     = APP_ADV_TIMEOUT_IN_SECONDS;
+            }
+        }
+        else
+        {
+            advertising_init(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
+            m_adv_params.type        = BLE_GAP_ADV_TYPE_ADV_IND;
+            m_adv_params.p_peer_addr = NULL;
+            m_adv_params.fp          = BLE_GAP_ADV_FP_ANY;
+            m_adv_params.interval    = APP_ADV_INTERVAL;
+            m_adv_params.timeout     = APP_ADV_TIMEOUT_IN_SECONDS;
+        }
+
         err_code = sd_ble_gap_adv_start(&m_adv_params);
         APP_ERROR_CHECK(err_code);
 
-        nrf_gpio_pin_set(ADVERTISING_LED_PIN_NO);
+        // nrf_gpio_pin_clear(ADVERTISING_LED_PIN_NO);
 
         m_is_advertising = true;
     }
@@ -609,7 +686,7 @@ static void advertising_stop(void)
         err_code = sd_ble_gap_adv_stop();
         APP_ERROR_CHECK(err_code);
 
-        nrf_gpio_pin_clear(ADVERTISING_LED_PIN_NO);
+        // nrf_gpio_pin_set(ADVERTISING_LED_PIN_NO);
 
         m_is_advertising = false;
     }
@@ -627,15 +704,16 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
     switch (p_ble_evt->header.evt_id)
     {
         case BLE_GAP_EVT_CONNECTED:
-            nrf_gpio_pin_set(CONNECTED_LED_PIN_NO);
-            nrf_gpio_pin_clear(ADVERTISING_LED_PIN_NO);
+            // nrf_gpio_pin_clear(CONNECTED_LED_PIN_NO);
+            // nrf_gpio_pin_set(ADVERTISING_LED_PIN_NO);
 
             m_conn_handle    = p_ble_evt->evt.gap_evt.conn_handle;
             m_is_advertising = false;
             break;
 
         case BLE_GAP_EVT_DISCONNECTED:
-            nrf_gpio_pin_clear(CONNECTED_LED_PIN_NO);
+            m_direct_adv_cnt = APP_DIRECTED_ADV_TIMEOUT;
+            // nrf_gpio_pin_set(CONNECTED_LED_PIN_NO);
 
             if (!m_tear_down_in_progress)
             {
@@ -660,13 +738,39 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
         case BLE_GATTS_EVT_TIMEOUT:
             if (p_ble_evt->evt.gatts_evt.params.timeout.src == BLE_GATT_TIMEOUT_SRC_PROTOCOL)
             {
+
                 err_code = sd_ble_gap_disconnect(m_conn_handle,
                                                  BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
                 APP_ERROR_CHECK(err_code);
             }
             break;
 
+        case BLE_GAP_EVT_TIMEOUT:
+            if (p_ble_evt->evt.gap_evt.params.timeout.src == BLE_GAP_TIMEOUT_SRC_ADVERTISEMENT)
+            {
+                m_is_advertising = false;
+                m_direct_adv_cnt--;
+                if (m_direct_adv_cnt == 0)
+                {
+                    dfu_update_status_t update_status = {.status_code = DFU_TIMEOUT};
+                    bootloader_dfu_update_process(update_status);
+                }
+                else
+                {
+                    advertising_start();
+                }
+            }
+            break;
+
+        case BLE_GAP_EVT_SEC_INFO_REQUEST:
+            err_code = sd_ble_gap_sec_info_reply(p_ble_evt->evt.gap_evt.conn_handle,
+                                                 &m_ble_peer_data.enc_info,
+                                                 NULL);
+            APP_ERROR_CHECK(err_code);
+            break;
+
         case BLE_GATTS_EVT_SYS_ATTR_MISSING:
+        case BLE_GAP_EVT_CONN_SEC_UPDATE:
             err_code = sd_ble_gatts_sys_attr_set(m_conn_handle, NULL, 0);
             APP_ERROR_CHECK(err_code);
             break;
@@ -678,7 +782,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
 }
 
 
-/**@brief     Function for dispatching a S110 SoftDevice event to all modules with a S110 SoftDevice 
+/**@brief     Function for dispatching a S110 SoftDevice event to all modules with a S110 SoftDevice
  *            event handler.
  *
  * @details   This function is called from the S110 SoftDevice event interrupt handler after a
@@ -694,19 +798,22 @@ static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
 }
 
 
-/**@brief     Function for the LEDs initialization.
+/**@brief       Function for the LEDs initialization.
+ *
+ * @details     Initializes all LEDs used by this application.
  */
 static void leds_init(void)
 {
-    nrf_gpio_cfg_output(ADVERTISING_LED_PIN_NO);
-    nrf_gpio_cfg_output(CONNECTED_LED_PIN_NO);
-    nrf_gpio_cfg_output(ASSERT_LED_PIN_NO);
+    // nrf_gpio_cfg_output(ADVERTISING_LED_PIN_NO);
+    // nrf_gpio_cfg_output(CONNECTED_LED_PIN_NO);
+    // nrf_gpio_pin_set(ADVERTISING_LED_PIN_NO);
+    // nrf_gpio_pin_set(CONNECTED_LED_PIN_NO);
 }
 
 
 /**@brief     Function for the GAP initialization.
  *
- * @details   This function will setup all the necessary GAP (Generic Access Profile) parameters of 
+ * @details   This function will setup all the necessary GAP (Generic Access Profile) parameters of
  *            the device. It also sets the permissions and appearance.
  */
 static void gap_params_init(void)
@@ -734,48 +841,9 @@ static void gap_params_init(void)
 }
 
 
-/**@brief     Function for the Advertising functionality initialization.
- *
- * @details   Encodes the required advertising data and passes it to the stack.
- *            Also builds a structure to be passed to the stack when starting advertising.
- */
-static void advertising_init(void)
-{
-    uint32_t      err_code;
-    ble_advdata_t advdata;
-    ble_uuid_t    service_uuid;
-    uint8_t       flags = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
-
-    service_uuid.type   = m_dfu.uuid_type;
-    service_uuid.uuid   = BLE_DFU_SERVICE_UUID;
-
-    // Build and set advertising data.
-    memset(&advdata, 0, sizeof(advdata));
-
-    advdata.name_type                     = BLE_ADVDATA_FULL_NAME;
-    advdata.include_appearance            = false;
-    advdata.flags.size                    = sizeof(flags);
-    advdata.flags.p_data                  = &flags;
-    advdata.uuids_more_available.uuid_cnt = 1;
-    advdata.uuids_more_available.p_uuids  = &service_uuid;
-
-    err_code = ble_advdata_set(&advdata, NULL);
-    APP_ERROR_CHECK(err_code);
-
-    // Initialize advertising parameters (used when starting advertising).
-    memset(&m_adv_params, 0, sizeof(m_adv_params));
-
-    m_adv_params.type        = BLE_GAP_ADV_TYPE_ADV_IND;
-    m_adv_params.p_peer_addr = NULL;                           
-    m_adv_params.fp          = BLE_GAP_ADV_FP_ANY;
-    m_adv_params.interval    = APP_ADV_INTERVAL;
-    m_adv_params.timeout     = APP_ADV_TIMEOUT_IN_SECONDS;
-}
-
-
 /**@brief     Function for handling Service errors.
  *
- * @details   A pointer to this function will be passed to the DFU service which may need to inform 
+ * @details   A pointer to this function will be passed to the DFU service which may need to inform
  *            the application about an error.
  *
  * @param[in] nrf_error Error code containing information about what went wrong.
@@ -796,11 +864,12 @@ static void services_init(void)
     // Initialize the Device Firmware Update Service.
     memset(&dfu_init_obj, 0, sizeof(dfu_init_obj));
 
+    dfu_init_obj.revision      = DFU_REVISION;
     dfu_init_obj.evt_handler   = on_dfu_evt;
     dfu_init_obj.error_handler = service_error_handler;
 
     err_code = ble_dfu_init(&m_dfu, &dfu_init_obj);
-    
+
     APP_ERROR_CHECK(err_code);
 }
 
@@ -822,7 +891,7 @@ static void sec_params_init(void)
 uint32_t dfu_transport_update_start()
 {
     uint32_t err_code;
-    
+
     m_pkt_type = PKT_TYPE_INVALID;
 
     leds_init();
@@ -834,20 +903,25 @@ uint32_t dfu_transport_update_start()
     }
 
     dfu_register_callback(dfu_cb_handler);
-    
+
     err_code = hci_mem_pool_open();
     if (err_code != NRF_SUCCESS)
     {
         return err_code;
     }
-    
+
+    err_code = dfu_ble_get_peer_data(&m_ble_peer_data);
+    if (err_code == NRF_SUCCESS)
+    {
+        m_ble_peer_data_valid = true;
+    }
+
     gap_params_init();
     services_init();
-    advertising_init();
     conn_params_init();
     sec_params_init();
     advertising_start();
-    
+
     return NRF_SUCCESS;
 }
 

@@ -20,7 +20,6 @@
 #include "nrf51.h"
 #include "app_error.h"
 #include "nrf_sdm.h"
-#include "ble_flash.h"
 #include "nordic_common.h"
 #include "crc16.h"
 #include "pstorage.h"
@@ -43,7 +42,6 @@ typedef enum
 
 static pstorage_handle_t        m_bootsettings_handle;  /**< Pstorage handle to use for registration and identifying the bootloader module on subsequent calls to the pstorage module for load and store of bootloader setting in flash. */
 static bootloader_status_t      m_update_status;        /**< Current update status for the bootloader module to ensure correct behaviour when updating settings and when update completes. */
-
 
 /**@brief   Function for handling callbacks from pstorage module.
  *
@@ -164,14 +162,13 @@ void bootloader_dfu_update_process(dfu_update_status_t update_status)
     else if (update_status.status_code == DFU_UPDATE_SD_COMPLETE)
     {
         settings.bank_0_crc     = update_status.app_crc;
-        settings.bank_0_size    = update_status.sd_size + 
-                                  update_status.bl_size + 
+        settings.bank_0_size    = update_status.sd_size +
+                                  update_status.bl_size +
                                   update_status.app_size;
         settings.bank_0         = BANK_VALID_SD;
         settings.bank_1         = BANK_INVALID_APP;
         settings.sd_image_size  = update_status.sd_size;
         settings.bl_image_size  = update_status.bl_size;
-        settings.app_image_size = update_status.app_size;
         settings.app_image_size = update_status.app_size;
         settings.sd_image_start = update_status.sd_image_start;
 
@@ -193,9 +190,20 @@ void bootloader_dfu_update_process(dfu_update_status_t update_status)
     }
     else if (update_status.status_code == DFU_UPDATE_SD_SWAPPED)
     {
-        settings.bank_0_crc     = 0;
-        settings.bank_0_size    = 0;
-        settings.bank_0         = BANK_INVALID_APP;
+        if (p_bootloader_settings->bank_0 == BANK_VALID_SD)
+        {
+            settings.bank_0_crc     = 0;
+            settings.bank_0_size    = 0;
+            settings.bank_0         = BANK_INVALID_APP;
+        }
+        // This handles cases where SoftDevice was not updated, hence bank0 keeps its settings.
+        else
+        {
+            settings.bank_0         = p_bootloader_settings->bank_0;
+            settings.bank_0_crc     = p_bootloader_settings->bank_0_crc;
+            settings.bank_0_size    = p_bootloader_settings->bank_0_size;
+        }
+
         settings.bank_1         = BANK_INVALID_APP;
         settings.sd_image_size  = 0;
         settings.bl_image_size  = 0;
@@ -216,17 +224,8 @@ void bootloader_dfu_update_process(dfu_update_status_t update_status)
     {
         settings.bank_0_crc  = 0;
         settings.bank_0_size = 0;
-        settings.bank_0      = BANK_ERASED;
+        settings.bank_0      = BANK_INVALID_APP;
         settings.bank_1      = p_bootloader_settings->bank_1;
-
-        bootloader_settings_save(&settings);
-    }
-    else if (update_status.status_code == DFU_BANK_1_ERASED)
-    {
-        settings.bank_0      = p_bootloader_settings->bank_0;
-        settings.bank_0_crc  = p_bootloader_settings->bank_0_crc;
-        settings.bank_0_size = p_bootloader_settings->bank_0_size;
-        settings.bank_1      = BANK_ERASED;
 
         bootloader_settings_save(&settings);
     }
@@ -255,7 +254,7 @@ uint32_t bootloader_init(void)
     storage_params.block_count = 1;
 
     err_code = pstorage_init();
-    if (err_code != NRF_SUCCESS)    
+    if (err_code != NRF_SUCCESS)
     {
         return err_code;
     }
@@ -271,8 +270,8 @@ uint32_t bootloader_dfu_start(void)
     uint32_t err_code;
 
     // Clear swap if banked update is used.
-    err_code = dfu_init(); 
-    if (err_code != NRF_SUCCESS)    
+    err_code = dfu_init();
+    if (err_code != NRF_SUCCESS)
     {
         return err_code;
     }
