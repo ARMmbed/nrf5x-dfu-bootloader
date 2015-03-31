@@ -46,14 +46,12 @@
 #include <stdio.h>
 #include "app_error.h"
 #include "app_util.h"
-#include "app_scheduler.h"
 #include "compiler_abstraction.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define APP_TIMER_SCHED_EVT_SIZE     sizeof(app_timer_event_t)  /**< Size of button events being passed through the scheduler (is to be used for computing the maximum size of scheduler events). */
 #define APP_TIMER_CLOCK_FREQ         32768                      /**< Clock frequency of the RTC timer used to implement the app timer module. */
 #define APP_TIMER_MIN_TIMEOUT_TICKS  5                          /**< Minimum value of the timeout_ticks parameter of app_timer_start(). */
 
@@ -89,9 +87,9 @@ extern "C" {
  *
  * @param[in]  MS          Milliseconds.
  * @param[in]  PRESCALER   Value of the RTC1 PRESCALER register (must be the same value that was
- *                         passed to APP_TIMER_INIT()).
- *
- * @note   When using this macro, it is the responsibility of the developer to ensure that the
+ *                         passed to APP_TIMER_INIT()). 
+ * 
+ * @note   When using this macro, it is the responsibility of the developer to ensure that the 
  *         values provided as input result in an output value that is supported by the
  *         @ref app_timer_start function. For example, when the ticks for 1 ms is needed, the
  *         maximum possible value of PRESCALER must be 6, when @ref APP_TIMER_CLOCK_FREQ is 32768.
@@ -126,25 +124,24 @@ typedef enum
  *          making sure that the buffer is correctly aligned. It will also connect the timer module
  *          to the scheduler (if specified).
  *
- * @note    This module assumes that the LFCLK is already running. If it isn't, the module will
- *          be non-functional, since the RTC will not run. If you don't use a softdevice, you'll
- *          have to start the LFCLK manually. See the rtc_example's lfclk_config() function
- *          for an example of how to do this. If you use a softdevice, the LFCLK is started on
- *          softdevice init.
+ * @note    This module assumes that the LFCLK is already running. If it isn't, the module will 
+ *          be non-functional, since the RTC will not run. If you don't use a softdevice, you'll 
+ *          have to start the LFCLK manually. See the rtc_example's lfclk_config() function 
+ *          for an example of how to do this. If you use a softdevice, the LFCLK is started on 
+ *          softdevice init. 
  *
  *
  * @param[in]  PRESCALER        Value of the RTC1 PRESCALER register. This will decide the
  *                              timer tick rate. Set to 0 for no prescaling.
  * @param[in]  MAX_TIMERS       Maximum number of timers that can be created at any given time.
  * @param[in]  OP_QUEUES_SIZE   Size of queues holding timer operations that are pending execution.
- * @param[in]  USE_SCHEDULER    TRUE if the application is using the event scheduler,
- *                              FALSE otherwise.
+ * @param[in]  SCHEDULER_FUNC   Pointer to scheduler event handler
  *
  * @note Since this macro allocates a buffer, it must only be called once (it is OK to call it
  *       several times as long as it is from the same location, e.g. to do a reinitialization).
  */
 /*lint -emacro(506, APP_TIMER_INIT) */ /* Suppress "Constant value Boolean */
-#define APP_TIMER_INIT(PRESCALER, MAX_TIMERS, OP_QUEUES_SIZE, USE_SCHEDULER)                       \
+#define APP_TIMER_INIT(PRESCALER, MAX_TIMERS, OP_QUEUES_SIZE, SCHEDULER_FUNC)                      \
     do                                                                                             \
     {                                                                                              \
         static uint32_t APP_TIMER_BUF[CEIL_DIV(APP_TIMER_BUF_SIZE((MAX_TIMERS),                    \
@@ -154,7 +151,7 @@ typedef enum
                                            (MAX_TIMERS),                                           \
                                            (OP_QUEUES_SIZE) + 1,                                   \
                                            APP_TIMER_BUF,                                          \
-                                           (USE_SCHEDULER) ? app_timer_evt_schedule : NULL);       \
+                                           SCHEDULER_FUNC);                                        \
         APP_ERROR_CHECK(ERR_CODE);                                                                 \
     } while (0)
 
@@ -182,7 +179,7 @@ typedef enum
  * @retval     NRF_ERROR_INVALID_PARAM   Invalid parameter (buffer not aligned to a 4 byte
  *                                       boundary or NULL).
  */
-uint32_t app_timer_init(uint32_t                      prescaler,
+uint32_t app_timer_init(uint32_t                      prescaler, 
                         uint8_t                       max_timers,
                         uint8_t                       op_queues_size,
                         void *                        p_buffer,
@@ -268,36 +265,6 @@ uint32_t app_timer_cnt_get(uint32_t * p_ticks);
 uint32_t app_timer_cnt_diff_compute(uint32_t   ticks_to,
                                     uint32_t   ticks_from,
                                     uint32_t * p_ticks_diff);
-
-
-// Type and functions for connecting the timer to the scheduler:
-
-/**@cond NO_DOXYGEN */
-typedef struct
-{
-    app_timer_timeout_handler_t timeout_handler;
-    void *                      p_context;
-} app_timer_event_t;
-
-static __INLINE void app_timer_evt_get(void * p_event_data, uint16_t event_size)
-{
-    app_timer_event_t * p_timer_event = (app_timer_event_t *)p_event_data;
-
-    APP_ERROR_CHECK_BOOL(event_size == sizeof(app_timer_event_t));
-    p_timer_event->timeout_handler(p_timer_event->p_context);
-}
-
-static __INLINE uint32_t app_timer_evt_schedule(app_timer_timeout_handler_t timeout_handler,
-                                                void *                      p_context)
-{
-    app_timer_event_t timer_event;
-
-    timer_event.timeout_handler = timeout_handler;
-    timer_event.p_context       = p_context;
-
-    return app_sched_event_put(&timer_event, sizeof(timer_event), app_timer_evt_get);
-}
-/**@endcond */
 
 #ifdef __cplusplus
 }

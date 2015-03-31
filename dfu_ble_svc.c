@@ -22,6 +22,9 @@ static uint16_t            m_peer_data_crc __attribute__((section("NoInit"), zer
 /**@brief Function for setting the peer data from application in bootloader before reset.
  *
  * @param[in] p_peer_data  Pointer to the peer data containing keys for the connection.
+ *
+ * @retval NRF_SUCCES      The data was set succesfully.
+ * @retval NRF_ERROR_NULL  If a null pointer was passed as argument.
  */
 static uint32_t dfu_ble_set_peer_data(dfu_ble_peer_data_t * p_peer_data)
 {
@@ -66,26 +69,27 @@ static uint32_t dfu_ble_set_peer_data(dfu_ble_peer_data_t * p_peer_data)
  *
  * @details The function will use svc_num to call the corresponding SVC function.
  *
- * @param[in] svc_num  SVC number for function to be executed
- * @param[in] svc_args Argument list for the SVC.
+ * @param[in] svc_num    SVC number for function to be executed
+ * @param[in] p_svc_args Argument list for the SVC.
  *
  * @return This function returns the error value of the SVC return. For further details, please
  *         refer to the details of the SVC implementation itself.
- *         \ref NRF_ERROR_SVC_HANDLER_MISSING is returned if no SVC handler is implemented for the
+ *         @ref NRF_ERROR_SVC_HANDLER_MISSING is returned if no SVC handler is implemented for the
  *         provided svc_num.
  */
-void C_SVC_Handler(uint8_t svc_num, uint32_t * svc_args)
+void C_SVC_Handler(uint8_t svc_num, uint32_t * p_svc_args)
 {
     switch (svc_num)
     {
         case DFU_BLE_SVC_SET_PEER_DATA:
-            svc_args[0] = dfu_ble_set_peer_data((dfu_ble_peer_data_t *) svc_args[0]);
+            p_svc_args[0] = dfu_ble_set_peer_data((dfu_ble_peer_data_t *)p_svc_args[0]);
             break;
 
         default:
-            svc_args[0] = NRF_ERROR_SVC_HANDLER_MISSING;
+            p_svc_args[0] = NRF_ERROR_SVC_HANDLER_MISSING;
             break;
     }
+
     return;
 }
 
@@ -94,7 +98,7 @@ void C_SVC_Handler(uint8_t svc_num, uint32_t * svc_args)
  *
  * @details The function will use the link register (LR) to determine the stack (PSP or MSP) to be
  *          used and then decode the SVC number afterwards. After decoding the SVC number then
- *          \ref C_SVC_Handler is called for further processing of the SVC.
+ *          @ref C_SVC_Handler is called for further processing of the SVC.
  */
 __asm void SVC_Handler(void)
 {
@@ -129,6 +133,9 @@ uint32_t dfu_ble_get_peer_data(dfu_ble_peer_data_t * p_peer_data)
     }
 
     *p_peer_data = m_peer_data;
+
+    // corrupt CRC to invalidate shared information.
+    m_peer_data_crc++;
 
     return NRF_SUCCESS;
 }

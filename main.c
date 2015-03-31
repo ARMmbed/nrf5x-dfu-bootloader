@@ -43,10 +43,10 @@
 #include "nrf51.h"
 #include "ble_hci.h"
 #include "app_scheduler.h"
-#include "app_timer.h"
+#include "app_timer_appsh.h"
 #include "nrf_error.h"
 // #include "bsp.h"
-#include "softdevice_handler.h"
+#include "softdevice_handler_appsh.h"
 #include "pstorage_platform.h"
 #include "nrf_mbr.h"
 
@@ -58,7 +58,7 @@
 // #error "Not enough LEDs on board"
 // #endif
 
-#define IS_SRVC_CHANGED_CHARACT_PRESENT 1                                                       /**< Include or not the service_changed characteristic. if not enabled, the server's database cannot be changed for the lifetime of the device*/
+#define IS_SRVC_CHANGED_CHARACT_PRESENT 1                                                       /**< Include the service_changed characteristic. For DFU this should normally be the case. */
 
 // #define BOOTLOADER_BUTTON               BSP_BUTTON_3                                            /**< Button used to enter SW update mode. */
 #define UPDATE_IN_PROGRESS_LED          BSP_LED_2                                               /**< Led used to indicate that DFU is active. */
@@ -105,7 +105,7 @@ static void leds_init(void)
 static void timers_init(void)
 {
     // Initialize timer module, making it use the scheduler.
-    APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_MAX_TIMERS, APP_TIMER_OP_QUEUE_SIZE, true);
+    APP_TIMER_APPSH_INIT(APP_TIMER_PRESCALER, APP_TIMER_MAX_TIMERS, APP_TIMER_OP_QUEUE_SIZE, true);
 }
 
 
@@ -155,7 +155,7 @@ static void ble_stack_init(bool init_softdevice)
     err_code = sd_softdevice_vector_table_base_set(BOOTLOADER_REGION_START);
     APP_ERROR_CHECK(err_code);
 
-    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_20_PPM, true);
+    SOFTDEVICE_HANDLER_APPSH_INIT(NRF_CLOCK_LFCLKSRC_XTAL_20_PPM, true);
 
     // Enable BLE stack
     ble_enable_params_t ble_enable_params;

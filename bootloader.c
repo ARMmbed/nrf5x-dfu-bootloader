@@ -162,8 +162,8 @@ void bootloader_dfu_update_process(dfu_update_status_t update_status)
     else if (update_status.status_code == DFU_UPDATE_SD_COMPLETE)
     {
         settings.bank_0_crc     = update_status.app_crc;
-        settings.bank_0_size    = update_status.sd_size +
-                                  update_status.bl_size +
+        settings.bank_0_size    = update_status.sd_size + 
+                                  update_status.bl_size + 
                                   update_status.app_size;
         settings.bank_0         = BANK_VALID_SD;
         settings.bank_1         = BANK_INVALID_APP;
@@ -231,10 +231,6 @@ void bootloader_dfu_update_process(dfu_update_status_t update_status)
     }
     else if (update_status.status_code == DFU_RESET)
     {
-        // Reset requested. Close the connection with the DFU Controller.
-        uint32_t err_code = dfu_transport_close();
-        APP_ERROR_CHECK(err_code);
-
         m_update_status = BOOTLOADER_RESET;
     }
     else
@@ -254,7 +250,7 @@ uint32_t bootloader_init(void)
     storage_params.block_count = 1;
 
     err_code = pstorage_init();
-    if (err_code != NRF_SUCCESS)
+    if (err_code != NRF_SUCCESS)    
     {
         return err_code;
     }
@@ -270,8 +266,8 @@ uint32_t bootloader_dfu_start(void)
     uint32_t err_code;
 
     // Clear swap if banked update is used.
-    err_code = dfu_init();
-    if (err_code != NRF_SUCCESS)
+    err_code = dfu_init(); 
+    if (err_code != NRF_SUCCESS)    
     {
         return err_code;
     }
