@@ -99,6 +99,7 @@ include_directories(
     ${NRF51822_SRC_PATH}/nordic-sdk/components/
     ${NRF51822_SRC_PATH}/nordic-sdk/components/ble
     ${NRF51822_SRC_PATH}/nordic-sdk/components/ble/ble_services/ble_dfu
+    ${NRF51822_SRC_PATH}/nordic-sdk/components/ble/ble_radio_notification
     ${NRF51822_SRC_PATH}/nordic-sdk/components/ble/common
     ${NRF51822_SRC_PATH}/nordic-sdk/components/ble/device_manager
     ${NRF51822_SRC_PATH}/nordic-sdk/components/ble/device_manager/config
@@ -118,8 +119,8 @@ include_directories(
     ${NRF51822_SRC_PATH}/nordic-sdk/components/softdevice
     ${NRF51822_SRC_PATH}/nordic-sdk/components/softdevice/common
     ${NRF51822_SRC_PATH}/nordic-sdk/components/softdevice/common/softdevice_handler
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/softdevice/s110
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/softdevice/s110/headers
+    ${NRF51822_SRC_PATH}/nordic-sdk/components/softdevice/s130
+    ${NRF51822_SRC_PATH}/nordic-sdk/components/softdevice/s130/include
 )
 
 # Generic compiler flags
@@ -131,7 +132,7 @@ add_definitions(
     -DDEBUG_NRF_USER
     -DBOARD_NRF6310
     -DBOOTLOADER_BANKED
-    -DBLE_STACK_SUPPORT_REQD
+    # -DBLE_STACK_SUPPORT_REQD
     -DUSE_APP_TIMER
     -O3
     --md
@@ -172,7 +173,7 @@ add_sources(
     app_timer_appsh.c
 )
 
-add_sources(startup/arm_startup_nrf51.s)
+add_sources(${BLE_BOOTLOADER_SOURCE_DIR}/startup/arm_startup_nrf51.s)
 add_sources(${MBED_SRC_PATH}/targets/cmsis/TARGET_NORDIC/TARGET_MCU_NRF51822/system_nrf51.c)
 
 file(GLOB NRF51822_SOURCES
@@ -180,6 +181,7 @@ file(GLOB NRF51822_SOURCES
           ${NRF51822_SRC_PATH}/nordic-sdk/components/ble/ble_services/ble_dfu/*.c
           ${NRF51822_SRC_PATH}/nordic-sdk/components/ble/common/*.c
           ${NRF51822_SRC_PATH}/nordic-sdk/components/ble/common/*.cpp
+          ${NRF51822_SRC_PATH}/nordic-sdk/components/ble/device_manager/*.c
           ${NRF51822_SRC_PATH}/nordic-sdk/components/drivers_nrf/hal/*.c
           ${NRF51822_SRC_PATH}/nordic-sdk/components/drivers_nrf/pstorage/*.c
           ${NRF51822_SRC_PATH}/nordic-sdk/components/libraries/bootloader_dfu/*.c
@@ -206,6 +208,6 @@ add_custom_command(
     COMMAND ${SIZE_COMMAND} ${MAIN_TARGET}
     COMMAND ${TOOLCHAIN_SYSROOT}/bin/fromelf --i32combined -o ${PROJECT_NAME}.hex ${MAIN_TARGET} # convert .elf to .hex
     COMMAND srec_cat ${PROJECT_NAME}.hex -intel -exclude 0x3FC00 0x3FC20 -generate 0x3FC00 0x3FC04 -l-e-constant 0x01 4 -generate 0x3FC04 0x3FC08 -l-e-constant 0x00 4 -generate 0x3FC08 0x3FC0C -l-e-constant 0xFE 4 -generate 0x3FC0C 0x3FC20 -constant 0x00 -o ${PROJECT_NAME}.hex -intel
-    COMMAND srec_cat ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/Lib/s110_nrf51822_8_0_0/s110_nrf51822_8.0.0_softdevice.hex -intel ${PROJECT_NAME}.hex -intel -o combined.hex -intel
+    COMMAND srec_cat ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/Lib/s130_nrf51822_1_0_0/s130_nrf51_1.0.0_softdevice.hex -intel ${PROJECT_NAME}.hex -intel -o combined.hex -intel
     # follow this by copying the resulting combined.hex onto the target (possibly over USB)
 )
