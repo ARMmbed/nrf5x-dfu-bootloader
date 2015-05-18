@@ -69,18 +69,18 @@ include_directories(
     ${BLE_BOOTLOADER_SOURCE_DIR}
     ${BLE_BOOTLOADER_SOURCE_DIR}/include
     ${BLE_BOOTLOADER_SOURCE_DIR}/include/ble_transport
-    # ${MBED_SRC_PATH}/
-    # ${MBED_SRC_PATH}/api
+    ${MBED_SRC_PATH}/
+    ${MBED_SRC_PATH}/api
     # ${MBED_SRC_PATH}/common
-    # ${MBED_SRC_PATH}/hal
+    ${MBED_SRC_PATH}/hal
     # ${MBED_SRC_PATH}/targets
     ${MBED_SRC_PATH}/targets/cmsis
     # ${MBED_SRC_PATH}/targets/cmsis/TARGET_NORDIC
     ${MBED_SRC_PATH}/targets/cmsis/TARGET_NORDIC/TARGET_MCU_NRF51822
     # ${MBED_SRC_PATH}/targets/cmsis/TARGET_NORDIC/TARGET_MCU_NRF51822/TOOLCHAIN_ARM_STD
     # ${MBED_SRC_PATH}/targets/hal
-    # ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC
-    # ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822
+    ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC
+    ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822
     # ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/Lib
     ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/TARGET_NRF51822_MKIT
     # ${BLE_API_SRC_PATH}
