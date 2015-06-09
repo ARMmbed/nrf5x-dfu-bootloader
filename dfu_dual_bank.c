@@ -447,9 +447,12 @@ uint32_t dfu_data_pkt_handle(dfu_update_packet_t * p_packet)
 
     switch (m_dfu_state)
     {
-        case DFU_STATE_RDY:
         case DFU_STATE_RX_INIT_PKT:
             return NRF_ERROR_INVALID_STATE;
+
+        case DFU_STATE_RDY:
+            m_dfu_state = DFU_STATE_RX_DATA_PKT;
+            /* fall through */
 
         case DFU_STATE_RX_DATA_PKT:
             data_length = p_packet->params.data_packet.packet_length * sizeof(uint32_t);
