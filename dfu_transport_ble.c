@@ -1050,6 +1050,7 @@ uint32_t dfu_transport_update_start(void)
     {
         m_ble_peer_data_valid = true;
     }
+#if NEED_ADDR_SWITCH_AGAINST_CACHING
     else
     {
         ble_gap_addr_t addr;
@@ -1063,6 +1064,7 @@ uint32_t dfu_transport_update_start(void)
         err_code = sd_ble_gap_address_set(BLE_GAP_ADDR_CYCLE_MODE_NONE, &addr);
         APP_ERROR_CHECK(err_code);
     }
+#endif /* NEED_ADDR_SWITCH_AGAINST_CACHING */
 
     gap_params_init();
     services_init();
