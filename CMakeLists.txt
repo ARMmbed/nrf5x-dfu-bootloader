@@ -13,9 +13,15 @@ cmake_minimum_required (VERSION 2.8)
 project (BLE_BOOTLOADER)
 
 # define some more paths to projects we depend on
-set (MBED_SRC_PATH     ${BLE_BOOTLOADER_SOURCE_DIR}/../../mbed-src/libraries/mbed)
-set (BLE_API_SRC_PATH  ${BLE_BOOTLOADER_SOURCE_DIR}/../../BLE_API)
-set (NRF51822_SRC_PATH ${BLE_BOOTLOADER_SOURCE_DIR}/../../nRF51822)
+set(MBED_SRC_PATH       ${BLE_BOOTLOADER_SOURCE_DIR}/mbed/libraries/mbed/
+    CACHE DIRECTORY     "MBED SDK path")
+set(BLE_API_SRC_PATH    ${BLE_BOOTLOADER_SOURCE_DIR}/BLE_API/
+    CACHE DIRECTORY     "BLE API path")
+set(NRF51822_SRC_PATH   ${BLE_BOOTLOADER_SOURCE_DIR}/nRF51822/
+    CACHE DIRECTORY     "nRF51822 API path")
+
+set(TOOLCHAIN_SYSROOT   /usr/local/
+    CACHE DIRECTORY     "Path to an ARM toolchain")
 
 # It's best to hide all the details of setting up the variable SRCS in a CMake
 # macro. The macro can then be called in all the project CMake list files to add
@@ -43,17 +49,17 @@ macro (add_sources)
 endmacro()
 
 # decide about the actual compilers to be used ...
-set(TOOLCHAIN_SYSROOT /home/rgrover/ext/arm-toolchains/rvct/ARMCompiler_5.03_117_Linux)
 set(CMAKE_CXX_COMPILER ${TOOLCHAIN_SYSROOT}/bin/armcc)
 set(CMAKE_C_COMPILER   ${TOOLCHAIN_SYSROOT}/bin/armcc)
+set(LINKER             ${TOOLCHAIN_SYSROOT}/bin/armlink)
 set(SIZE_COMMAND       size)
 set(MAIN_TARGET        ${PROJECT_NAME}.elf)
-SET(CMAKE_LINK_FLAGS "--libpath=${TOOLCHAIN_SYSROOT}/lib --info=totals --list=.link_totals.txt --scatter ${BLE_BOOTLOADER_SOURCE_DIR}/bootloader.sct")
+set(CMAKE_LINK_FLAGS "--libpath=${TOOLCHAIN_SYSROOT}/lib --info=totals --list=.link_totals.txt --scatter ${BLE_BOOTLOADER_SOURCE_DIR}/bootloader.sct")
 
-SET(CMAKE_CXX_LINK_EXECUTABLE
-    "armlink ${CMAKE_LINK_FLAGS} <OBJECTS> -o <TARGET> --map --feedback=.feedback --feedback_type=unused,iw")
-SET(CMAKE_C_LINK_EXECUTABLE
-    "armlink ${CMAKE_LINK_FLAGS} <OBJECTS> -o <TARGET> --map --feedback=.feedback --feedback_type=unused,iw")
+set(CMAKE_CXX_LINK_EXECUTABLE
+    "${LINKER} ${CMAKE_LINK_FLAGS} <OBJECTS> -o <TARGET> --map --feedback=.feedback --feedback_type=unused,iw")
+set(CMAKE_C_LINK_EXECUTABLE
+    "${LINKER} ${CMAKE_LINK_FLAGS} <OBJECTS> -o <TARGET> --map --feedback=.feedback --feedback_type=unused,iw")
 enable_language(ASM)
 
 message(STATUS "C compiler  : ${CMAKE_C_COMPILER}")
