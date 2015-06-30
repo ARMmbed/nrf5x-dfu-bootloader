@@ -247,6 +247,7 @@ add_custom_target(${COMBINED_SD} ALL
     COMMAND srec_cat ${SOFT_DEVICE} -intel
         ${HEX_TARGET} -intel
         -o ${COMBINED_SD} -intel -obs=16
+    COMMAND srec_info ${COMBINED_SD} -intel
 )
 
 add_custom_target(${COMBINED_SD_APP} ALL
