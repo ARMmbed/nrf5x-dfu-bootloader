@@ -25,7 +25,7 @@ set(APP_PATH            ${BLE_BOOTLOADER_SOURCE_DIR}/DefaultApp.hex
 set(SOFT_DEVICE		${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/Lib/s130_nrf51822_1_0_0/s130_nrf51_1.0.0_softdevice.hex)
 
 set(TOOLCHAIN_SYSROOT   /usr/local/
-    CACHE DIRECTORY     "Path to an ARM toolchain")
+    CACHE DIRECTORY     "Path to an ARM toolchain") # potential setting for TOOLCHAIN_SYSROOT: ~/ext/arm-toolchains/rvct/ARMCompiler_5.03_117_Linux
 
 # It's best to hide all the details of setting up the variable SRCS in a CMake
 # macro. The macro can then be called in all the project CMake list files to add
