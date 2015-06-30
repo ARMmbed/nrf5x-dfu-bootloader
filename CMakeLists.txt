@@ -231,6 +231,14 @@ add_custom_command(
 add_custom_target(${HEX_TARGET} ALL
     DEPENDS ${MAIN_TARGET}
     COMMAND ${TOOLCHAIN_SYSROOT}/bin/fromelf --i32combined -o ${PROJECT_NAME}.hex ${MAIN_TARGET}
+    COMMAND srec_cat ${PROJECT_NAME}.hex -intel
+        # Change bootloader settings: BANK0 now contains a valid application
+        -exclude 0x3FC00 0x3FC20
+        -generate 0x3FC00 0x3FC04 -l-e-constant 0x01 4
+        -generate 0x3FC04 0x3FC08 -l-e-constant 0x00 4
+        -generate 0x3FC08 0x3FC0C -l-e-constant 0xFE 4
+        -generate 0x3FC0C 0x3FC20 -constant 0x00
+        -o ${PROJECT_NAME}.hex -intel
 )
 
 add_custom_target(${COMBINED_SD} ALL
@@ -246,13 +254,6 @@ add_custom_target(${COMBINED_SD_APP} ALL
     DEPENDS ${COMBINED_SD}
     COMMAND srec_cat ${COMBINED_SD} -intel
         ${APP_PATH} -intel
-
-        # Change bootloader settings: BANK0 now contains a valid application
-        -exclude 0x3FC00 0x3FC20
-        -generate 0x3FC00 0x3FC04 -l-e-constant 0x01 4
-        -generate 0x3FC04 0x3FC08 -l-e-constant 0x00 4
-        -generate 0x3FC08 0x3FC0C -l-e-constant 0xFE 4
-        -generate 0x3FC0C 0x3FC20 -constant 0x00
         -o ${COMBINED_SD_APP} -intel -obs=16
     COMMAND srec_info ${COMBINED_SD_APP} -intel
     # follow this by copying the resulting combined.hex onto the target (possibly over USB)
