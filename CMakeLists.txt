@@ -13,9 +13,19 @@ cmake_minimum_required (VERSION 2.8)
 project (BLE_BOOTLOADER)
 
 # define some more paths to projects we depend on
-set (MBED_SRC_PATH     ${BLE_BOOTLOADER_SOURCE_DIR}/../../mbed-src/libraries/mbed)
-set (BLE_API_SRC_PATH  ${BLE_BOOTLOADER_SOURCE_DIR}/../../BLE_API)
-set (NRF51822_SRC_PATH ${BLE_BOOTLOADER_SOURCE_DIR}/../../nRF51822)
+set(MBED_SRC_PATH       ${BLE_BOOTLOADER_SOURCE_DIR}/mbed/libraries/mbed/
+    CACHE DIRECTORY     "MBED SDK path")
+set(BLE_API_SRC_PATH    ${BLE_BOOTLOADER_SOURCE_DIR}/BLE_API/
+    CACHE DIRECTORY     "BLE API path")
+set(NRF51822_SRC_PATH   ${BLE_BOOTLOADER_SOURCE_DIR}/nRF51822/
+    CACHE DIRECTORY     "nRF51822 API path")
+set(APP_PATH            ${BLE_BOOTLOADER_SOURCE_DIR}/DefaultApp.hex
+    CACHE FILE          "Default application to bundle with the bootloader")
+
+set(SOFT_DEVICE		${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/Lib/s130_nrf51822_1_0_0/s130_nrf51_1.0.0_softdevice.hex)
+
+set(TOOLCHAIN_SYSROOT   /usr/local/
+    CACHE DIRECTORY     "Path to an ARM toolchain") # potential setting for TOOLCHAIN_SYSROOT: ~/ext/arm-toolchains/rvct/ARMCompiler_5.03_117_Linux
 
 # It's best to hide all the details of setting up the variable SRCS in a CMake
 # macro. The macro can then be called in all the project CMake list files to add
@@ -43,23 +53,32 @@ macro (add_sources)
 endmacro()
 
 # decide about the actual compilers to be used ...
-set(TOOLCHAIN_SYSROOT /home/rgrover/ext/arm-toolchains/rvct/ARMCompiler_5.03_117_Linux)
 set(CMAKE_CXX_COMPILER ${TOOLCHAIN_SYSROOT}/bin/armcc)
 set(CMAKE_C_COMPILER   ${TOOLCHAIN_SYSROOT}/bin/armcc)
+set(LINKER             ${TOOLCHAIN_SYSROOT}/bin/armlink)
 set(SIZE_COMMAND       size)
 set(MAIN_TARGET        ${PROJECT_NAME}.elf)
-SET(CMAKE_LINK_FLAGS "--libpath=${TOOLCHAIN_SYSROOT}/lib --info=totals --list=.link_totals.txt --scatter ${BLE_BOOTLOADER_SOURCE_DIR}/bootloader.sct")
+set(HEX_TARGET         ${PROJECT_NAME}.hex)
+set(COMBINED_SD        "combined.hex"
+    CACHE FILE         "Output name for the bundled bootloader+softdevice")
+set(COMBINED_SD_APP    "combined_app.hex"
+    CACHE FILE         "Output name for the bundled bootloader+softdevice+app")
 
-SET(CMAKE_CXX_LINK_EXECUTABLE
-    "armlink ${CMAKE_LINK_FLAGS} <OBJECTS> -o <TARGET> --map --feedback=.feedback --feedback_type=unused,iw")
-SET(CMAKE_C_LINK_EXECUTABLE
-    "armlink ${CMAKE_LINK_FLAGS} <OBJECTS> -o <TARGET> --map --feedback=.feedback --feedback_type=unused,iw")
+set(CMAKE_LINK_FLAGS   "--libpath=${TOOLCHAIN_SYSROOT}/lib --info=totals --list=.link_totals.txt --scatter ${BLE_BOOTLOADER_SOURCE_DIR}/bootloader.sct")
+
+set(CMAKE_CXX_LINK_EXECUTABLE
+    "${LINKER} ${CMAKE_LINK_FLAGS} <OBJECTS> -o <TARGET> --map --feedback=.feedback --feedback_type=unused,iw")
+set(CMAKE_C_LINK_EXECUTABLE
+    "${LINKER} ${CMAKE_LINK_FLAGS} <OBJECTS> -o <TARGET> --map --feedback=.feedback --feedback_type=unused,iw")
 enable_language(ASM)
 
 message(STATUS "C compiler  : ${CMAKE_C_COMPILER}")
 message(STATUS "C++ compiler: ${CMAKE_CXX_COMPILER}")
 message(STATUS "Size command: ${SIZE_COMMAND}")
 message(STATUS "Main target : ${MAIN_TARGET}")
+message(STATUS "HEX target  : ${HEX_TARGET}")
+message(STATUS "Combined    : ${COMBINED_SD}")
+message(STATUS "Combined+app: ${COMBINED_SD_APP}")
 
 ############################################################################
 # Build type should be clear from here so we
@@ -204,10 +223,40 @@ add_executable(${MAIN_TARGET} ${SRCS})
 # Add a post-build dependency like printing size of the
 # resulting binary and copying to the target.
 add_custom_command(
+    # Show ELF size
     TARGET ${MAIN_TARGET}
     COMMAND ${SIZE_COMMAND} ${MAIN_TARGET}
-    COMMAND ${TOOLCHAIN_SYSROOT}/bin/fromelf --i32combined -o ${PROJECT_NAME}.hex ${MAIN_TARGET} # convert .elf to .hex
-    COMMAND srec_cat ${PROJECT_NAME}.hex -intel -exclude 0x3FC00 0x3FC20 -generate 0x3FC00 0x3FC04 -l-e-constant 0x01 4 -generate 0x3FC04 0x3FC08 -l-e-constant 0x00 4 -generate 0x3FC08 0x3FC0C -l-e-constant 0xFE 4 -generate 0x3FC0C 0x3FC20 -constant 0x00 -o ${PROJECT_NAME}.hex -intel
-    COMMAND srec_cat ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/Lib/s130_nrf51822_1_0_0/s130_nrf51_1.0.0_softdevice.hex -intel ${PROJECT_NAME}.hex -intel -o combined.hex -intel
-    # follow this by copying the resulting combined.hex onto the target (possibly over USB)
 )
+
+add_custom_target(${HEX_TARGET} ALL
+    DEPENDS ${MAIN_TARGET}
+    COMMAND ${TOOLCHAIN_SYSROOT}/bin/fromelf --i32combined -o ${PROJECT_NAME}.hex ${MAIN_TARGET}
+    COMMAND srec_cat ${PROJECT_NAME}.hex -intel
+        # Change bootloader settings: BANK0 now contains a valid application
+        -exclude 0x3FC00 0x3FC20
+        -generate 0x3FC00 0x3FC04 -l-e-constant 0x01 4
+        -generate 0x3FC04 0x3FC08 -l-e-constant 0x00 4
+        -generate 0x3FC08 0x3FC0C -l-e-constant 0xFE 4
+        -generate 0x3FC0C 0x3FC20 -constant 0x00
+        -o ${PROJECT_NAME}.hex -intel
+)
+
+add_custom_target(${COMBINED_SD} ALL
+    COMMENT "Add a SoftDevice to the HEX package"
+    DEPENDS ${HEX_TARGET}
+    COMMAND srec_cat ${SOFT_DEVICE} -intel
+        ${HEX_TARGET} -intel
+        -o ${COMBINED_SD} -intel -obs=16
+    COMMAND srec_info ${COMBINED_SD} -intel
+)
+
+# The following is optional. Enable it if you wish to combine with a default app.
+# add_custom_target(${COMBINED_SD_APP} ALL
+#     COMMENT "Add an application to the HEX package"
+#     DEPENDS ${COMBINED_SD}
+#     COMMAND srec_cat ${COMBINED_SD} -intel
+#         ${APP_PATH} -intel
+#         -o ${COMBINED_SD_APP} -intel -obs=16
+#     COMMAND srec_info ${COMBINED_SD_APP} -intel
+#     # follow this by copying the resulting combined.hex onto the target (possibly over USB)
+# )
