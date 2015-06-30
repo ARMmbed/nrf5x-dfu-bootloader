@@ -250,12 +250,13 @@ add_custom_target(${COMBINED_SD} ALL
     COMMAND srec_info ${COMBINED_SD} -intel
 )
 
-add_custom_target(${COMBINED_SD_APP} ALL
-    COMMENT "Add an application to the HEX package"
-    DEPENDS ${COMBINED_SD}
-    COMMAND srec_cat ${COMBINED_SD} -intel
-        ${APP_PATH} -intel
-        -o ${COMBINED_SD_APP} -intel -obs=16
-    COMMAND srec_info ${COMBINED_SD_APP} -intel
-    # follow this by copying the resulting combined.hex onto the target (possibly over USB)
-)
+# The following is optional. Enable it if you wish to combine with a default app.
+# add_custom_target(${COMBINED_SD_APP} ALL
+#     COMMENT "Add an application to the HEX package"
+#     DEPENDS ${COMBINED_SD}
+#     COMMAND srec_cat ${COMBINED_SD} -intel
+#         ${APP_PATH} -intel
+#         -o ${COMBINED_SD_APP} -intel -obs=16
+#     COMMAND srec_info ${COMBINED_SD_APP} -intel
+#     # follow this by copying the resulting combined.hex onto the target (possibly over USB)
+# )
