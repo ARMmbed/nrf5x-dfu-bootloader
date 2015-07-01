@@ -22,7 +22,11 @@ set(NRF51822_SRC_PATH   ${BLE_BOOTLOADER_SOURCE_DIR}/nRF51822/
 set(APP_PATH            ${BLE_BOOTLOADER_SOURCE_DIR}/DefaultApp.hex
     CACHE FILE          "Default application to bundle with the bootloader")
 
-set(SOFT_DEVICE		${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/Lib/s130_nrf51822_1_0_0/s130_nrf51_1.0.0_softdevice.hex)
+set(SOFT_DEVICE         ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/Lib/s130_nrf51822_1_0_0/s130_nrf51_1.0.0_softdevice.hex)
+set(PLATFORM            HRM1017
+    CACHE DIRECTORY     "Target platform (NRF51822, ARCH_BLE, HRM1017...)")
+set(BOARD               ${PLATFORM}
+    CACHE DIRECTORY     "Target board (NRF51822_MKIT, ARCH_BLE, HRM1017...)")
 
 set(TOOLCHAIN_SYSROOT   /usr/local/
     CACHE DIRECTORY     "Path to an ARM toolchain") # potential setting for TOOLCHAIN_SYSROOT: ~/ext/arm-toolchains/rvct/ARMCompiler_5.03_117_Linux
@@ -79,6 +83,8 @@ message(STATUS "Main target : ${MAIN_TARGET}")
 message(STATUS "HEX target  : ${HEX_TARGET}")
 message(STATUS "Combined    : ${COMBINED_SD}")
 message(STATUS "Combined+app: ${COMBINED_SD_APP}")
+message(STATUS "Platform    : ${PLATFORM}")
+message(STATUS "Board       : ${BOARD}")
 
 ############################################################################
 # Build type should be clear from here so we
@@ -105,7 +111,7 @@ include_directories(
     ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/Lib/nordic_sdk/components/libraries/crc16
     ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/Lib/nordic_sdk/components/libraries/scheduler
     ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/Lib/nordic_sdk/components/libraries/util
-    ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/TARGET_NRF51822_MKIT
+    ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/TARGET_${BOARD}
     ${BLE_API_SRC_PATH}
     ${BLE_API_SRC_PATH}/public
     ${BLE_API_SRC_PATH}/common
@@ -156,6 +162,8 @@ add_definitions(
     -O3
     --md
     -DTARGET_NRF51822
+    -DTARGET_${PLATFORM}
+    -DTARGET_${BOARD}
     -DTARGET_M0
     -DTARGET_NORDIC
     -DTOOLCHAIN_ARM_STD
