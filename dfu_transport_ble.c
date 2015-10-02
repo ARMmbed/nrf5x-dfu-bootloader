@@ -37,8 +37,15 @@
 #include "dfu_ble_svc_internal.h"
 #include "nrf_delay.h"
 
+/*
+ * We support version 0.6, but we have to advertise 0.4 during development.
+ * With this questionable hack, the current FOTA android app won't require
+ * an init packet
+ */
 #define DFU_REV_MAJOR                        0x00                                                    /** DFU Major revision number to be exposed. */
-#define DFU_REV_MINOR                        0x06                                                    /** DFU Minor revision number to be exposed. */
+//#define DFU_REV_MINOR                        0x06                                                    /** DFU Minor revision number to be exposed. */
+#define DFU_REV_MINOR                        0x04
+
 #define DFU_REVISION                         ((DFU_REV_MAJOR << 8) | DFU_REV_MINOR)                  /** DFU Revision number to be exposed. Combined of major and minor versions. */
 // #define ADVERTISING_LED_PIN_NO               BSP_LED_0                                               /**< Is on when device is advertising. */
 // #define CONNECTED_LED_PIN_NO                 BSP_LED_1                                               /**< Is on when device has connected. */
