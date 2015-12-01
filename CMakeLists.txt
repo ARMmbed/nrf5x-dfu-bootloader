@@ -22,7 +22,11 @@ set(NRF51822_SRC_PATH   ${BLE_BOOTLOADER_SOURCE_DIR}/nRF51822/
 set(APP_PATH            ${BLE_BOOTLOADER_SOURCE_DIR}/DefaultApp.hex
     CACHE FILE          "Default application to bundle with the bootloader")
 
-set(SOFT_DEVICE		${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/Lib/s130_nrf51822_1_0_0/s130_nrf51_1.0.0_softdevice.hex)
+set(SOFT_DEVICE         ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/Lib/s130_nrf51822_1_0_0/s130_nrf51_1.0.0_softdevice.hex)
+set(PLATFORM            HRM1017
+    CACHE DIRECTORY     "Target platform (NRF51822, ARCH_BLE, HRM1017...)")
+set(BOARD               ${PLATFORM}
+    CACHE DIRECTORY     "Target board (NRF51822_MKIT, ARCH_BLE, HRM1017...)")
 
 set(TOOLCHAIN_SYSROOT   /usr/local/
     CACHE DIRECTORY     "Path to an ARM toolchain") # potential setting for TOOLCHAIN_SYSROOT: ~/ext/arm-toolchains/rvct/ARMCompiler_5.03_117_Linux
@@ -79,6 +83,8 @@ message(STATUS "Main target : ${MAIN_TARGET}")
 message(STATUS "HEX target  : ${HEX_TARGET}")
 message(STATUS "Combined    : ${COMBINED_SD}")
 message(STATUS "Combined+app: ${COMBINED_SD_APP}")
+message(STATUS "Platform    : ${PLATFORM}")
+message(STATUS "Board       : ${BOARD}")
 
 ############################################################################
 # Build type should be clear from here so we
@@ -105,41 +111,42 @@ include_directories(
     ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/Lib/nordic_sdk/components/libraries/crc16
     ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/Lib/nordic_sdk/components/libraries/scheduler
     ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/Lib/nordic_sdk/components/libraries/util
-    ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/TARGET_NRF51822_MKIT
+    ${MBED_SRC_PATH}/targets/hal/TARGET_NORDIC/TARGET_MCU_NRF51822/TARGET_${BOARD}
+
     ${BLE_API_SRC_PATH}
-    ${BLE_API_SRC_PATH}/public
-    ${BLE_API_SRC_PATH}/common
-    ${BLE_API_SRC_PATH}/services
-    ${NRF51822_SRC_PATH}
-    ${NRF51822_SRC_PATH}/btle
-    ${NRF51822_SRC_PATH}/btle/custom
-    ${NRF51822_SRC_PATH}/common
-    ${NRF51822_SRC_PATH}/nordic
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/ble
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/ble/ble_services/ble_dfu
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/ble/ble_radio_notification
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/ble/common
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/ble/device_manager
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/ble/device_manager/config
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/drivers_nrf
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/drivers_nrf/ble_flash
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/drivers_nrf/hal
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/drivers_nrf/pstorage
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/drivers_nrf/pstorage/config
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/libraries
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/libraries/bootloader_dfu
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/libraries/bootloader_dfu/hci_transport
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/libraries/crc16
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/libraries/gpiote
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/libraries/hci
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/libraries/scheduler
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/libraries/util
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/softdevice
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/softdevice/common
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/softdevice/common/softdevice_handler
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/softdevice/s130
-    ${NRF51822_SRC_PATH}/nordic-sdk/components/softdevice/s130/include
+    ${BLE_API_SRC_PATH}/ble
+    ${BLE_API_SRC_PATH}/ble/services
+
+    ${NRF51822_SRC_PATH}/source
+    ${NRF51822_SRC_PATH}/source/btle
+    ${NRF51822_SRC_PATH}/source/btle/custom
+    ${NRF51822_SRC_PATH}/source/common
+    ${NRF51822_SRC_PATH}/source/nordic
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/ble
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/ble/ble_services/ble_dfu
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/ble/ble_radio_notification
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/ble/common
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/ble/device_manager
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/ble/device_manager/config
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/drivers_nrf
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/drivers_nrf/ble_flash
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/drivers_nrf/hal
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/drivers_nrf/pstorage
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/drivers_nrf/pstorage/config
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/libraries
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/libraries/bootloader_dfu
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/libraries/bootloader_dfu/hci_transport
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/libraries/crc16
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/libraries/gpiote
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/libraries/hci
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/libraries/scheduler
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/libraries/util
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/softdevice
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/softdevice/common
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/softdevice/common/softdevice_handler
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/softdevice/s130
+    ${NRF51822_SRC_PATH}/source/nordic-sdk/components/softdevice/s130/include
 )
 
 # Generic compiler flags
@@ -156,6 +163,8 @@ add_definitions(
     -O3
     --md
     -DTARGET_NRF51822
+    -DTARGET_${PLATFORM}
+    -DTARGET_${BOARD}
     -DTARGET_M0
     -DTARGET_NORDIC
     -DTOOLCHAIN_ARM_STD
@@ -196,20 +205,19 @@ add_sources(${BLE_BOOTLOADER_SOURCE_DIR}/startup/arm_startup_nrf51.s)
 add_sources(${MBED_SRC_PATH}/targets/cmsis/TARGET_NORDIC/TARGET_MCU_NRF51822/system_nrf51.c)
 
 file(GLOB NRF51822_SOURCES
-          ${NRF51822_SRC_PATH}/btle/custom/*.cpp
-          ${NRF51822_SRC_PATH}/nordic-sdk/components/ble/ble_services/ble_dfu/*.c
-          ${NRF51822_SRC_PATH}/nordic-sdk/components/ble/common/*.c
-          ${NRF51822_SRC_PATH}/nordic-sdk/components/ble/common/*.cpp
-          ${NRF51822_SRC_PATH}/nordic-sdk/components/ble/device_manager/*.c
-          ${NRF51822_SRC_PATH}/nordic-sdk/components/drivers_nrf/hal/*.c
-          ${NRF51822_SRC_PATH}/nordic-sdk/components/drivers_nrf/pstorage/*.c
-          ${NRF51822_SRC_PATH}/nordic-sdk/components/libraries/bootloader_dfu/*.c
-          ${NRF51822_SRC_PATH}/nordic-sdk/components/libraries/bootloader_dfu/experimental/*.c
-          ${NRF51822_SRC_PATH}/nordic-sdk/components/libraries/crc16/*.c
-          ${NRF51822_SRC_PATH}/nordic-sdk/components/libraries/hci/*.c
-          ${NRF51822_SRC_PATH}/nordic-sdk/components/libraries/scheduler/*.c
-          ${NRF51822_SRC_PATH}/nordic-sdk/components/libraries/util/*.c
-          ${NRF51822_SRC_PATH}/nordic-sdk/components/softdevice/common/softdevice_handler/*.c
+          ${NRF51822_SRC_PATH}/source/nordic-sdk/components/ble/ble_services/ble_dfu/*.c
+          ${NRF51822_SRC_PATH}/source/nordic-sdk/components/ble/common/*.c
+          ${NRF51822_SRC_PATH}/source/nordic-sdk/components/ble/common/*.cpp
+          ${NRF51822_SRC_PATH}/source/nordic-sdk/components/ble/device_manager/*.c
+          ${NRF51822_SRC_PATH}/source/nordic-sdk/components/drivers_nrf/hal/*.c
+          ${NRF51822_SRC_PATH}/source/nordic-sdk/components/drivers_nrf/pstorage/*.c
+          ${NRF51822_SRC_PATH}/source/nordic-sdk/components/libraries/bootloader_dfu/*.c
+          ${NRF51822_SRC_PATH}/source/nordic-sdk/components/libraries/bootloader_dfu/experimental/*.c
+          ${NRF51822_SRC_PATH}/source/nordic-sdk/components/libraries/crc16/*.c
+          ${NRF51822_SRC_PATH}/source/nordic-sdk/components/libraries/hci/*.c
+          ${NRF51822_SRC_PATH}/source/nordic-sdk/components/libraries/scheduler/*.c
+          ${NRF51822_SRC_PATH}/source/nordic-sdk/components/libraries/util/*.c
+          ${NRF51822_SRC_PATH}/source/nordic-sdk/components/softdevice/common/softdevice_handler/*.c
     )
 add_sources(${NRF51822_SOURCES})
 

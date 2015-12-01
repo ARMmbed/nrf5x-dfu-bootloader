@@ -155,7 +155,12 @@ static void ble_stack_init(bool init_softdevice)
     err_code = sd_softdevice_vector_table_base_set(BOOTLOADER_REGION_START);
     APP_ERROR_CHECK(err_code);
 
+#if defined(TARGET_DELTA_DFCM_NNN40) || defined(TARGET_HRM1017) || defined(TARGET_NRF51_MICROBIT)
+    /* Those targets don't use an external clock */
+    SOFTDEVICE_HANDLER_APPSH_INIT(NRF_CLOCK_LFCLKSRC_RC_250_PPM_250MS_CALIBRATION, true);
+#else
     SOFTDEVICE_HANDLER_APPSH_INIT(NRF_CLOCK_LFCLKSRC_XTAL_20_PPM, true);
+#endif
 
     // Enable BLE stack
     ble_enable_params_t ble_enable_params;
